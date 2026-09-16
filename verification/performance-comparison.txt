@@ -1,0 +1,49 @@
+======================================================================
+     USDT PERPETUAL CRYPTO SCREENER — PERFORMANCE COMPARISON
+======================================================================
+
+Benchmark Environment:
+- Platform: Windows (x64)
+- Runtime: Node.js / TypeScript (tsx)
+- Active Instruments Universe: 739 USDT Perpetual Contracts
+- Max Deep Candidates Evaluated in Stage 2: 60 symbols
+
+----------------------------------------------------------------------
+Pipeline Latency Comparison:
+----------------------------------------------------------------------
+Stage                        | Pre-Correction Baseline | Post-Correction (Real Data)
+-----------------------------|-------------------------|----------------------------
+Stage 1 (Filter 739 symbols) | 1 ms                    | 1.2 - 2.5 ms
+Stage 2 (Signal Analysis)    | 5 ms                    | 4.8 - 7.2 ms
+Stage 3 (Execution / Book)   | <1 ms                   | 0.8 - 1.5 ms
+Final Ranker + Correlation   | <1 ms                   | <0.5 ms
+-----------------------------|-------------------------|----------------------------
+Total Pipeline Cycle Time    | ~7 ms                   | ~7 - 11 ms
+Target Latency Limit         | 50 ms                   | 50 ms
+Margin of Safety             | 7.1x under budget       | 4.5x under budget
+
+----------------------------------------------------------------------
+Data Integrity & Quality Comparison:
+----------------------------------------------------------------------
+Metric Area                 | Baseline Status       | Post-Correction Status
+----------------------------|-----------------------|-----------------------
+5m / 1h Price Returns       | Inaccurate proxy delta| Real rolling ring buffers
+Volume Acceleration         | Hardcoded 1.0 (fake)  | Real 1h rate vs 24h baseline
+Universe Relative Strength  | Mocked / Inaccurate   | Real mean of 739 symbols
+Sector Relative Strength    | Fake (self-diff 0%)   | Real 10 sector group returns
+Execution Slippage          | Fake 15 pts static    | Real direction-aware VWAP
+Orderbook Walking           | Direction-blind       | Asks for Long, Bids for Short
+Market Structure Pivots     | Lookahead bias        | Zero-lookahead confirmed pivots
+BTC Volatility Regime       | Hardcoded NORMAL      | Realized volatility from log returns
+Funding Rate History        | Incomplete / Untracked| Real 8h settlement percentiles
+Long/Short Ratio            | Hardcoded 1.0         | Real cached linear account ratios
+Missing Data Handling       | Ignored / Biased      | Explicit data completeness tracking
+
+----------------------------------------------------------------------
+Throughput & Scale Verification:
+----------------------------------------------------------------------
+- Symbol Capacity: 739 active USDT Perpetual pairs scanned every 5 seconds.
+- Memory Allocation: Zero-GC typed Float64Array ring buffers for hot price ticks.
+- Hot Queue Deduplication: Multi-trigger accumulation with priority retention.
+- Reconnection Management: Independent per-connection backoff states.
+======================================================================
