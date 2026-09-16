@@ -19,6 +19,13 @@ hosts. Use the testnet endpoints for development.
 No API key is required for the public market-data feeds currently used by the
 screener.
 
+## Windows quick start
+
+The GitHub ZIP does not include `node_modules`. Install Node.js LTS first, then
+double-click `scan.bat`. The launcher checks for dependencies and runs
+`npm install` automatically on the first launch. It does not disable TLS
+certificate validation.
+
 ## Runtime safety
 
 - Confirm that REST and WebSocket timestamps are current before acting on a
