@@ -1,8 +1,7 @@
 node_modules/
 dist/
-output/
+/output/
 .env
 .env.*
 !.env.example
 *.log
-
