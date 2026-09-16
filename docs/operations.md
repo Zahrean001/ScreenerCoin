@@ -5,6 +5,10 @@
 This application is a read-only real-time screener for Bybit USDT perpetual
 contracts. It ranks LONG and SHORT setups; it does not place orders.
 
+The source code is proprietary. Public visibility does not grant permission
+to copy, modify, redistribute, re-host, or use the project commercially.
+See the repository `LICENSE` file for the complete terms.
+
 The pipeline combines liquidity, open interest, spread, rolling price movement,
 market structure, momentum, funding, relative strength, volatility, orderbook
 quality, and anti-chase rules. `actionableResults` are intended for immediate

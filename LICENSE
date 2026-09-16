@@ -1,21 +1,30 @@
-MIT License
+Proprietary Source-Available License
 
-Copyright (c) 2026 Zahrean001
+Copyright (c) 2026 Zahrean001. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository and its source code are proprietary and are made available
+for viewing and evaluation only.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Without prior written permission from Zahrean001, you may not:
+
+- copy, reproduce, or mirror this source code;
+- modify, adapt, translate, or create derivative works;
+- redistribute, sublicense, publish, or re-host the source code;
+- use the source code or derived works for commercial purposes;
+- remove or alter copyright, attribution, or license notices;
+- present the source code or a derived work as your own.
+
+You may download and inspect this repository for personal evaluation.
+Running the software for personal, non-commercial evaluation is permitted
+provided that this license and all copyright notices remain intact.
+
+Any permission not expressly granted by this license is reserved by the
+copyright holder. To request permission for commercial use, redistribution,
+modification, or other use outside this license, contact the copyright holder
+through the repository owner account.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+FROM THE SOFTWARE OR ITS USE.

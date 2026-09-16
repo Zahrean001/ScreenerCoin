@@ -2,6 +2,8 @@
 
 Read-only crypto market screener for **Bybit USDT perpetual contracts**.
 
+Copyright (c) 2026 Zahrean001. All rights reserved.
+
 This bot helps users discover coins that may deserve further review by
 combining unusual activity, liquidity, momentum, market structure, capital
 flow, relative strength, multi-timeframe context, VWAP levels, orderbook
@@ -10,6 +12,16 @@ imbalance, and absorption-style orderflow confirmation.
 > **Important:** This is a discovery and ranking tool, not an auto-trading bot.
 > It does not place orders, manage positions, or guarantee profits. Every
 > signal must be independently reviewed before any trading decision.
+
+## License and usage rights
+
+This is a proprietary source-available project. The source is public for
+inspection and personal, non-commercial evaluation only. Copying,
+redistribution, modification, commercial use, re-hosting, or publishing
+derived versions requires prior written permission from Zahrean001.
+
+See [LICENSE](LICENSE) for the complete terms. The project is not released
+under an open-source license.
 
 ## What the bot is for
 
@@ -226,4 +238,3 @@ orderbook, and absorption logic.
 - [Operations guide](docs/operations.md)
 - [Discovery upgrade walkthrough](walkthrough.md)
 - [Environment example](.env.example)
-
