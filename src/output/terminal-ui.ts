@@ -8,7 +8,9 @@ import {
   formatPrice,
   formatPercent,
   renderGauge,
-  pad
+  pad,
+  stripAnsi,
+  wrap
 } from './ui-formatter.js';
 import chalk from 'chalk';
 
@@ -54,12 +56,15 @@ export class TerminalUI {
     // ────────────────────────────────────────────────────────────
     // 1. ACTIONABLE NOW
     // ────────────────────────────────────────────────────────────
-    content += '\n' + chalk.green.bold('  [1] ACTIONABLE CANDIDATES') + chalk.gray(' — Confirmed setups within risk parameters') + '\n';
+    content += '\n' + chalk.green.bold('  [1] SINYAL VALID & SIAP ENTRY (ACTIONABLE)') + chalk.gray(' — Setup terkonfirmasi dengan risiko terkontrol') + '\n';
     content += chalk.gray('  ' + '─'.repeat(W) + '\n');
 
     if (actionable.length === 0) {
-      content += chalk.gray('\n  No symbol passed all strict timing and risk gates in this snapshot.\n');
-      content += chalk.gray('  Check Watchlist below or wait for a pullback into support.\n\n');
+      content += '\n';
+      content += chalk.gray('  ┌' + '─'.repeat(W) + '┐\n');
+      content += chalk.gray('  │') + pad(chalk.yellow('  Tidak ada setup yang lolos seluruh gerbang risiko pada snapshot ini.'), W) + chalk.gray('│\n');
+      content += chalk.gray('  │') + pad(chalk.gray('  Pasar overextended / choppy. Pantau DAFTAR PANTAU (Watchlist) di bawah.'), W) + chalk.gray('│\n');
+      content += chalk.gray('  └' + '─'.repeat(W) + '┘\n');
     } else {
       for (const res of actionable) {
         content += renderDetailedCard(res, res.rank) + '\n';
@@ -69,46 +74,82 @@ export class TerminalUI {
     // ────────────────────────────────────────────────────────────
     // 2. WATCHLIST (PULLBACK RETEST)
     // ────────────────────────────────────────────────────────────
-    content += '\n' + chalk.cyan.bold('  [2] WATCHLIST') + chalk.gray(' — Trend intact, awaiting pullback / support retest') + '\n';
-    content += chalk.gray('  ' + '─'.repeat(W) + '\n');
+    content += '\n';
+    content += chalk.gray('  ┌' + '─'.repeat(W) + '┐\n');
+    content += chalk.gray('  │') + pad(chalk.cyan.bold('  [2] DAFTAR PANTAU (WATCHLIST) — Tren Valid, Tunggu Koreksi / Retest'), W) + chalk.gray('│\n');
+    content += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
     if (watchlist.length === 0) {
-      content += chalk.gray('  (No symbols in watchlist)\n');
+      content += chalk.gray('  │') + pad(chalk.gray('  (Tidak ada koin watchlist pada snapshot saat ini)'), W) + chalk.gray('│\n');
     } else {
-      for (const item of watchlist) {
-        const sideColor = item.side === 'LONG' ? chalk.green : chalk.red;
+      for (let i = 0; i < watchlist.length; i++) {
+        const item = watchlist[i];
+        const sideTag = item.side === 'LONG' ? chalk.green.bold('BUY / LONG') : chalk.red.bold('SELL / SHORT');
         const scoreBar = renderGauge(item.finalScore, 100, 6);
         const p24 = formatPercent(item.priceChange24h);
         const priceStr = formatPrice(item.price);
-        const note = item.timing?.decision || item.signalCategory || 'Waiting for support retest';
+        const note = item.timing?.decision || item.signalCategory || 'Tren valid, menunggu pullback ke area support / VWAP';
 
-        content += `  • ${chalk.yellow.bold(item.symbol.padEnd(12))} [${sideColor(item.side)}] ${scoreBar} ${item.finalScore.toFixed(1)}/100 | ${priceStr} (${p24})\n`;
-        content += chalk.gray(`    Plan: ${note}\n`);
+        const line1Left = `  • ${chalk.yellow.bold(item.symbol.padEnd(11))} [${sideTag}] ${scoreBar} ${item.finalScore.toFixed(1)}/100`;
+        const line1Right = `${priceStr} (${p24})  `;
+        const sp1 = Math.max(1, W - stripAnsi(line1Left).length - stripAnsi(line1Right).length);
+        const line1 = line1Left + ' '.repeat(sp1) + line1Right;
+        content += chalk.gray('  │') + pad(line1, W) + chalk.gray('│\n');
+
+        const maxPlanLen = W - 14;
+        const planLines = wrap(note, maxPlanLen);
+        for (let j = 0; j < planLines.length; j++) {
+          const planText = j === 0 ? `    Plan  : ${planLines[j]}` : `            ${planLines[j]}`;
+          content += chalk.gray('  │') + pad(chalk.gray(planText), W) + chalk.gray('│\n');
+        }
+
+        if (i < watchlist.length - 1) {
+          content += chalk.gray('  │' + ' '.repeat(W) + '│\n');
+        }
       }
     }
+    content += chalk.gray('  └' + '─'.repeat(W) + '┘\n');
 
     // ────────────────────────────────────────────────────────────
     // 3. AVOID / QUARANTINED
     // ────────────────────────────────────────────────────────────
-    content += '\n' + chalk.red.bold('  [3] QUARANTINED / DO NOT CHASE') + chalk.gray(' — Overextended, late move, or stale data') + '\n';
-    content += chalk.gray('  ' + '─'.repeat(W) + '\n');
+    content += '\n';
+    content += chalk.gray('  ┌' + '─'.repeat(W) + '┐\n');
+    content += chalk.gray('  │') + pad(chalk.red.bold('  [3] AREA DIHINDARI (QUARANTINED) — Overextended / Fakeout / High Risk'), W) + chalk.gray('│\n');
+    content += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
     if (rejected.length === 0) {
-      content += chalk.gray('  (No quarantined symbols)\n');
+      content += chalk.gray('  │') + pad(chalk.gray('  (Tidak ada koin yang di-quarantine pada snapshot saat ini)'), W) + chalk.gray('│\n');
     } else {
-      for (const item of rejected) {
-        const sideColor = item.side === 'LONG' ? chalk.green : chalk.red;
+      for (let i = 0; i < rejected.length; i++) {
+        const item = rejected[i];
+        const sideTag = item.side === 'LONG' ? chalk.green.bold('BUY / LONG') : chalk.red.bold('SELL / SHORT');
         const priceStr = formatPrice(item.price);
         const p24 = formatPercent(item.priceChange24h);
-        const reason = item.timing?.orderbookWarning || item.timing?.decision || 'Price extended near upper band, high mean-reversion risk';
+        const reason = item.timing?.orderbookWarning || item.timing?.decision || 'Harga overextended dekat batas deviasi atas (Mean reversion risk)';
 
-        content += `  • ${chalk.white.bold(item.symbol.padEnd(12))} [${sideColor(item.side)}] ${priceStr} (${p24}) | ${chalk.red('AVOID')}\n`;
-        content += chalk.gray(`    Reason: ${reason}\n`);
+        const line1Left = `  • ${chalk.white.bold(item.symbol.padEnd(11))} [${sideTag}] ${priceStr} (${p24})`;
+        const line1Right = `${chalk.red.bold('JANGAN KEJAR / AVOID')}  `;
+        const sp = Math.max(1, W - stripAnsi(line1Left).length - stripAnsi(line1Right).length);
+        const line1 = line1Left + ' '.repeat(sp) + line1Right;
+        content += chalk.gray('  │') + pad(line1, W) + chalk.gray('│\n');
+
+        const maxReasonLen = W - 14;
+        const reasonLines = wrap(reason, maxReasonLen);
+        for (let j = 0; j < reasonLines.length; j++) {
+          const reasonText = j === 0 ? `    Alasan: ${reasonLines[j]}` : `            ${reasonLines[j]}`;
+          content += chalk.gray('  │') + pad(chalk.gray(reasonText), W) + chalk.gray('│\n');
+        }
+
+        if (i < rejected.length - 1) {
+          content += chalk.gray('  │' + ' '.repeat(W) + '│\n');
+        }
       }
     }
+    content += chalk.gray('  └' + '─'.repeat(W) + '┘\n');
 
     // Execution Note
-    content += '\n' + chalk.gray('  Execution Note: Quantitative discovery only. Verify live orderbook liquidity before order entry.\n');
+    content += '\n' + chalk.gray('  Catatan Eksekusi: Data kuantitatif radar awal. Selalu periksa kedalaman orderbook sebelum entry.\n');
 
     console.log(content);
   }

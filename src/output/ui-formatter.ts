@@ -237,7 +237,7 @@ export function pad(str: string, len: number): string {
   return diff > 0 ? str + ' '.repeat(diff) : str;
 }
 
-const wrap = (text: string, maxLen: number): string[] => {
+export function wrap(text: string, maxLen: number): string[] {
   const words = text.split(' ');
   const lines: string[] = [];
   let cur = '';
