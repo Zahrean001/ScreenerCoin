@@ -17,7 +17,8 @@ import {
   OrderbookSnapshot, 
   TradeData, 
   LiquidationData,
-  FundingState 
+  FundingState,
+  DataFreshness
 } from '../data/types.js';
 import { CircularBuffer, NumericRingBuffer, TimestampedPriceRingBuffer } from '../data/circular-buffer.js';
 import { LongEngine } from '../engines/long-engine.js';
@@ -56,6 +57,7 @@ export interface ScreenerHubProvider {
   getCandles(symbol: string, tf: CandleTimeframe): CircularBuffer<CandleData> | undefined;
   getHTFContext?(symbol: string): HTFContext | null;
   getSymbolSector?(symbol: string): string;
+  getFreshness?(symbol: string): any;
 }
 
 export class Stage2Signal {
@@ -298,6 +300,26 @@ export class Stage2Signal {
       timing.actionabilityScore = Math.min(100, (timing.actionabilityScore ?? 0) + 4);
     }
 
+    // P0 #2: Strict Freshness SLA Gate (Stale Bybit data blocks ACTIONABLE_NOW)
+    const freshnessReport = hub.getFreshness ? hub.getFreshness(symbol) : null;
+    const overallFreshness: DataFreshness = freshnessReport?.overall ?? {
+      sourceTimestamp: ticker.timestamp,
+      receivedAt: ticker.receivedAt ?? Date.now(),
+      ageMs: 0,
+      isStale: false,
+      status: 'FRESH'
+    };
+    timing.freshness = overallFreshness;
+    let actionableBlocked = false;
+    if (freshnessReport?.isStale) {
+      actionableBlocked = true;
+      timing.actionableBlocked = true;
+      timing.antiChaseReasons.push(`STALE_BYBIT_DATA: ${freshnessReport.reason || 'Delayed timestamp'}`);
+      if (timing.entryStatus === 'ACTIONABLE_NOW') {
+        timing.entryStatus = 'WAITING';
+      }
+    }
+
     return {
       symbol,
       longScore,
@@ -318,6 +340,8 @@ export class Stage2Signal {
       oiCapitalFlow: oiFunding.capitalFlowLabel,
       vwapAnalysis: timing.vwapAnalysis,
       absorption,
+      freshness: freshnessReport.overall,
+      actionableBlocked,
       setupState: timing.setupState,
       timingWindow: timing.timingWindow,
       entryStatus: timing.entryStatus,

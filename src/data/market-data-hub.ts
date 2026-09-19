@@ -7,8 +7,9 @@ import {
   TradeData, LiquidationData, Timeframe, CandleTimeframe, IndicatorState,
   getSectorForCoin, PriceWindowMetric,
   FundingSettlement, CurrentFundingState, FundingState,
-  OIDeltaSnapshot
+  OIDeltaSnapshot, DataFreshness
 } from './types.js';
+import { computeFreshness } from '../utils/freshness.js';
 import { 
   CircularBuffer, 
   NumericRingBuffer, 
@@ -87,6 +88,7 @@ export class MarketDataHub {
     const now = Date.now();
     for (const [symbol, ticker] of initialTickers.entries()) {
       if (this.instruments.has(symbol)) {
+        ticker.receivedAt = now;
         this.tickers.set(symbol, ticker);
         const pBuf = this.priceHistories.get(symbol);
         if (pBuf && ticker.lastPrice > 0) {
@@ -157,7 +159,8 @@ export class MarketDataHub {
       nextFundingTime: 0,
       ...data,
       symbol,
-      timestamp: now
+      timestamp: data.timestamp ?? now,
+      receivedAt: now
     };
 
     if (current) {
@@ -325,10 +328,12 @@ export class MarketDataHub {
   }
 
   updateOrderbook(snapshot: OrderbookSnapshot & { type?: string }) {
+    snapshot.receivedAt = Date.now();
     this.orderbooks.set(snapshot.symbol, snapshot);
   }
 
   addTrade(trade: TradeData) {
+    trade.receivedAt = Date.now();
     const buf = this.recentTrades.get(trade.symbol);
     if (buf) buf.push(trade);
 
@@ -669,5 +674,49 @@ export class MarketDataHub {
       }));
     }
     return loaded;
+  }
+
+  getFreshness(symbol: string): {
+    isStale: boolean;
+    reason?: string;
+    ticker: DataFreshness;
+    orderbook?: DataFreshness;
+    overall: DataFreshness;
+  } {
+    const ticker = this.tickers.get(symbol);
+    const orderbook = this.orderbooks.get(symbol);
+    const now = Date.now();
+
+    const tFresh = computeFreshness(ticker?.timestamp, ticker?.receivedAt ?? now, 30_000);
+    const obFresh = orderbook
+      ? computeFreshness(orderbook.timestamp, orderbook.receivedAt ?? now, 15_000)
+      : undefined;
+
+    let isStale = false;
+    let reason: string | undefined;
+
+    if (tFresh.isStale) {
+      isStale = true;
+      reason = `Bybit Ticker Stale (Age: ${tFresh.ageMs}ms)`;
+    } else if (obFresh && obFresh.isStale) {
+      isStale = true;
+      reason = `Bybit Orderbook Stale (Age: ${obFresh.ageMs}ms)`;
+    }
+
+    const overall: DataFreshness = {
+      sourceTimestamp: ticker?.timestamp ?? null,
+      receivedAt: now,
+      ageMs: tFresh.ageMs,
+      isStale,
+      status: isStale ? 'STALE' : (tFresh.status === 'TIMESTAMP_UNAVAILABLE' ? 'TIMESTAMP_UNAVAILABLE' : 'FRESH')
+    };
+
+    return {
+      isStale,
+      reason,
+      ticker: tFresh,
+      orderbook: obFresh,
+      overall
+    };
   }
 }

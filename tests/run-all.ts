@@ -22,7 +22,9 @@ const testSuites = [
   'tests/discovery-engine-upgrade.test.ts',
   'tests/absorption-engine.test.ts',
   'tests/anchored-vwap.test.ts',
-  'tests/htf-context.test.ts'
+  'tests/htf-context.test.ts',
+  'tests/p0-freshness-concurrency.test.ts',
+  'tests/p1-binance-anchor.test.ts'
 ];
 
 console.log('====================================================');

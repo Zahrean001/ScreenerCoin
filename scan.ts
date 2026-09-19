@@ -24,6 +24,8 @@ import { Stage2Signal } from './src/stages/stage2-signal.js';
 import { CorrelationFilter } from './src/ranking/correlation.js';
 import { FinalRanker, CandidateScores } from './src/ranking/final-ranker.js';
 import { TerminalUI } from './src/output/terminal-ui.js';
+import { BinanceSymbolResolver } from './src/exchanges/binance-symbol-resolver.js';
+import { BinanceDeepAnchorEngine } from './src/exchanges/binance-deep-anchor.js';
 import chalk from 'chalk';
 
 // ─── Helper: progress bar ───
@@ -192,6 +194,10 @@ async function runScan() {
   const finalRanker = new FinalRanker(correlationFilter);
   const terminalUI = new TerminalUI();
 
+  const binanceResolver = new BinanceSymbolResolver();
+  const binanceInitPromise = binanceResolver.initialize(4000).catch(() => {});
+  const binanceAnchor = new BinanceDeepAnchorEngine(binanceResolver, 5, 2000, 5, 45_000);
+
   // ══════════════════════════════════════════════════════════════════
   // BRANCH A: CUSTOM COIN REQUEST SCAN
   // ══════════════════════════════════════════════════════════════════
@@ -258,6 +264,23 @@ async function runScan() {
       if (score) {
         customScores.push(score);
         sectorMap.set(sym, hub.getSymbolSector(sym));
+      }
+    }
+
+    await binanceInitPromise;
+    const cxMap = await binanceAnchor.analyzeAll(
+      customScores.map(s => ({
+        symbol: s.symbol,
+        lastPrice: s.ticker.lastPrice,
+        priceChange24hPcnt: s.ticker.price24hPcnt,
+        openInterestValue: s.ticker.openInterestValue
+      }))
+    );
+    for (const s of customScores) {
+      const cx = cxMap.get(s.symbol);
+      if (cx) {
+        s.crossExchange = cx;
+        if (s.timing) s.timing.crossExchange = cx;
       }
     }
 
@@ -343,6 +366,22 @@ async function runScan() {
         const absColor = abs.event === 'BULLISH_ABSORPTION' ? chalk.green.bold : chalk.red.bold;
         console.log(chalk.gray(`  │  Orderflow Event: `) + absColor(abs.event) + chalk.gray(` | Confidence: `) + chalk.white(`${abs.confidence}/100`) + chalk.gray(` | Lokasi: `) + chalk.cyan(abs.location));
         console.log(chalk.gray(`  │  Data Absorpsi  : `) + chalk.white(abs.evidence.join(' | ')) + chalk.gray(` | Trapped: `) + chalk.yellow(abs.trappedSide ?? 'N/A'));
+      }
+
+      const cx = score.crossExchange ?? score.timing?.crossExchange;
+      if (cx && cx.status !== 'BINANCE_UNAVAILABLE') {
+        const cxColor = cx.scoreModifier > 0 ? chalk.green.bold : cx.scoreModifier < 0 ? chalk.red.bold : chalk.yellow;
+        const modStr = cx.scoreModifier > 0 ? `+${cx.scoreModifier}` : `${cx.scoreModifier}`;
+        console.log(chalk.gray(`  │  Cross-Exchange : `) + cxColor(cx.status) + chalk.gray(` | Confidence: `) + chalk.white(cx.confidence) + chalk.gray(` | Mod: `) + chalk.cyan(modStr));
+        const bybitR = cx.bybitFuturesReturn != null ? `${(cx.bybitFuturesReturn * 100).toFixed(2)}%` : 'N/A';
+        const binFR = cx.binanceFuturesReturn != null ? `${(cx.binanceFuturesReturn * 100).toFixed(2)}%` : 'N/A';
+        const binSR = cx.binanceSpotReturn != null ? `${(cx.binanceSpotReturn * 100).toFixed(2)}%` : 'N/A';
+        console.log(chalk.gray(`  │  Venue Delta    : `) + chalk.white(`Bybit: ${bybitR} | Binance Futures: ${binFR} | Binance Spot: ${binSR}`));
+        if (cx.oiConfluence !== 'UNAVAILABLE') {
+          console.log(chalk.gray(`  │  OI Confluence  : `) + chalk.white(cx.oiConfluence));
+        }
+      } else if (cx && cx.status === 'BINANCE_UNAVAILABLE') {
+        console.log(chalk.gray(`  │  Cross-Exchange : `) + chalk.gray('BINANCE_UNAVAILABLE (Bybit standalone)'));
       }
 
       console.log(chalk.gray(`  │  Kategori Sinyal: `) + chalk.cyan.bold(score.signalCategory || 'MONITORING') + chalk.gray(` | Entry Status: `) + chalk.white(score.entryStatus || 'EVALUATING'));
@@ -451,6 +490,30 @@ async function runScan() {
   }
   console.log(chalk.green(`  ✓ `) + chalk.white.bold(`${candidateScores.length}`) + chalk.gray(` signals detected from ${analyzed} analyzed`) + chalk.gray(` (${elapsed(startTime)})`));
   console.log(progressBar(5, 6));
+
+  console.log(chalk.cyan(`  ${spin()} `) + chalk.white('  ⚡ Checking Binance cross-exchange deep anchor (top candidates)...'));
+  await binanceInitPromise;
+  const topCandidatesForCX = [...candidateScores]
+    .sort((a, b) => Math.max(b.longScore.total, b.shortScore.total) - Math.max(a.longScore.total, a.shortScore.total))
+    .slice(0, 25);
+
+  const cxMap = await binanceAnchor.analyzeAll(
+    topCandidatesForCX.map(s => ({
+      symbol: s.symbol,
+      lastPrice: s.ticker.lastPrice,
+      priceChange24hPcnt: s.ticker.price24hPcnt,
+      openInterestValue: s.ticker.openInterestValue
+    }))
+  );
+
+  for (const s of candidateScores) {
+    const cx = cxMap.get(s.symbol);
+    if (cx) {
+      s.crossExchange = cx;
+      if (s.timing) s.timing.crossExchange = cx;
+    }
+  }
+  console.log(chalk.green(`  ✓ `) + chalk.white(`Cross-exchange confluence analyzed (${topCandidatesForCX.length} candidates)`) + chalk.gray(` (${elapsed(startTime)})`));
 
   console.log(chalk.cyan(`  ${spin()} `) + chalk.white('[6/6] Final ranking & generating output...'));
   const totalSymbols = hub.instruments.size;

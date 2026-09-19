@@ -42,6 +42,7 @@ export interface TickerData {
   fundingRate: number;
   nextFundingTime: number;
   timestamp: number;
+  receivedAt?: number;
 }
 
 export interface CandleData {
@@ -53,6 +54,8 @@ export interface CandleData {
   volume: number;      // base coin
   turnover: number;    // USDT
   confirmed: boolean;
+  isClosed?: boolean;
+  receivedAt?: number;
 }
 
 export interface TradeData {
@@ -61,6 +64,7 @@ export interface TradeData {
   side: 'Buy' | 'Sell';
   price: number;
   size: number;
+  receivedAt?: number;
 }
 
 export interface LiquidationData {
@@ -69,6 +73,7 @@ export interface LiquidationData {
   side: 'Buy' | 'Sell'; // Buy = short liquidated, Sell = long liquidated
   price: number;
   size: number;
+  receivedAt?: number;
 }
 
 export interface OrderbookLevel {
@@ -82,6 +87,7 @@ export interface OrderbookSnapshot {
   asks: OrderbookLevel[];
   timestamp: number;
   updateId: number;
+  receivedAt?: number;
 }
 
 // ---- Metric Metadata ----
@@ -92,6 +98,45 @@ export interface PriceWindowMetric {
   referenceTimestamp: number;
   window: '5m' | '15m' | '1h';
   dataPointsAvailable: number;
+}
+
+// ---- Data Freshness & SLA Specification ----
+
+export interface DataFreshness {
+  sourceTimestamp: number | null;
+  receivedAt: number;
+  ageMs: number;
+  isStale: boolean;
+  isConfirmed?: boolean;
+  status: 'FRESH' | 'STALE' | 'TIMESTAMP_UNAVAILABLE';
+}
+
+// ---- Cross-Exchange (Binance Deep Anchor) Types ----
+
+export type CrossExchangeStatus =
+  | 'CROSS_EXCHANGE_CONFIRMED'
+  | 'SPOT_DRIVEN_ACCUMULATION'
+  | 'BYBIT_ONLY_MOVE'
+  | 'SPOT_FUTURES_DIVERGENCE'
+  | 'CROSS_EXCHANGE_DIVERGENCE'
+  | 'BINANCE_UNAVAILABLE'
+  | 'STALE_EXTERNAL_DATA'
+  | 'REQUEST_TIMEOUT'
+  | 'REQUEST_ERROR';
+
+export interface CrossExchangeAnalysis {
+  status: CrossExchangeStatus;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  scoreModifier: number; // Clamped strictly to [-5, +5]
+  bybitFuturesReturn?: number | null;
+  binanceFuturesReturn?: number | null;
+  binanceSpotReturn?: number | null;
+  bybitOIDelta?: number | null;
+  binanceOIDelta?: number | null;
+  oiConfluence: 'BOTH_EXPANDING' | 'BOTH_CONTRACTING' | 'DIVERGENT' | 'UNAVAILABLE';
+  reason: string;
+  timestamp: number;
+  latencyMs: number;
 }
 
 // ---- VWAP Multi-Anchor & Bands Types ----
@@ -415,6 +460,9 @@ export interface TimingAnalysis {
   orderbookWarning?: string | null;
   vwapAnalysis?: VWAPAnalysis | null;
   absorption?: AbsorptionAnalysis | null;
+  freshness?: DataFreshness;
+  crossExchange?: CrossExchangeAnalysis;
+  actionableBlocked?: boolean;
   antiChaseReasons: string[];
   decision: string;
 }
@@ -706,6 +754,9 @@ export interface ScreenerCandidate {
   oiCapitalFlow?: string;
   vwapAnalysis?: VWAPAnalysis | null;
   absorption?: AbsorptionAnalysis | null;
+  freshness?: DataFreshness;
+  crossExchange?: CrossExchangeAnalysis;
+  actionableBlocked?: boolean;
   setupState?: SetupState;
   timingWindow?: TimingWindow;
   entryStatus?: EntryStatus;

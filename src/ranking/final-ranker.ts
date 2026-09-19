@@ -29,7 +29,9 @@ import {
   EntryPotential,
   MTFConfluenceType,
   VWAPAnalysis, HTFContext,
-  AbsorptionAnalysis
+  AbsorptionAnalysis,
+  DataFreshness,
+  CrossExchangeAnalysis
 } from '../data/types.js';
 import { CONFIG } from '../config.js';
 import { CorrelationFilter } from './correlation.js';
@@ -54,6 +56,9 @@ export interface CandidateScores {
   oiCapitalFlow?: string;
   vwapAnalysis?: VWAPAnalysis | null;
   absorption?: AbsorptionAnalysis | null;
+  freshness?: DataFreshness;
+  crossExchange?: CrossExchangeAnalysis;
+  actionableBlocked?: boolean;
   setupState?: SetupState;
   timingWindow?: TimingWindow;
   entryStatus?: EntryStatus;
@@ -129,8 +134,15 @@ export class FinalRanker {
           ? Math.max(0, Math.min(100, c.shortScore.total + htfModifier))
           : Math.max(c.longScore.total, c.shortScore.total);
 
-      const finalScore = (CONFIG.OPPORTUNITY_WEIGHT * opportunityScore) + 
-                         (CONFIG.EXECUTION_WEIGHT * c.executionScore.total);
+      // P1 #4: Cross-Exchange modifier (bounded strictly to [-5, +5])
+      const rawCrossMod = c.crossExchange?.scoreModifier ?? c.timing?.crossExchange?.scoreModifier ?? 0;
+      const crossMod = Math.max(-5, Math.min(5, rawCrossMod));
+
+      const finalScore = Math.max(0, Math.min(100,
+        (CONFIG.OPPORTUNITY_WEIGHT * opportunityScore) +
+        (CONFIG.EXECUTION_WEIGHT * c.executionScore.total) +
+        crossMod
+      ));
 
       let rating: Rating = 'REJECT';
       if (finalScore >= CONFIG.RATING_AP) rating = 'A+';
@@ -162,6 +174,10 @@ export class FinalRanker {
         const reasons = [...primaryBreakdown.modifiers.map(m => m.name)];
         if (c.timing) {
           reasons.unshift(`${c.timing.phase.label}: ${c.timing.moveMaturity}`);
+        }
+        const crossEx = c.crossExchange ?? c.timing?.crossExchange;
+        if (crossEx && crossMod !== 0) {
+          reasons.push(`Cross-Ex: ${crossEx.status} (${crossMod > 0 ? '+' : ''}${crossMod})`);
         }
         
         const p5m = c.priceChange5m !== undefined ? c.priceChange5m : null;
@@ -200,15 +216,20 @@ export class FinalRanker {
           oiCapitalFlow: c.oiCapitalFlow,
           vwapAnalysis: c.vwapAnalysis ?? c.timing?.vwapAnalysis,
           absorption: c.absorption ?? c.timing?.absorption,
+          freshness: c.freshness ?? c.timing?.freshness,
+          crossExchange: c.crossExchange ?? c.timing?.crossExchange,
+          actionableBlocked: c.actionableBlocked ?? c.timing?.actionableBlocked ?? (c.freshness?.isStale === true),
           setupState: c.setupState,
           timingWindow: c.timingWindow,
-          entryStatus: c.timing?.entryStatus ?? (
-            (signalCat === 'EARLY_LONG' || signalCat === 'EARLY_SHORT' || signalCat === 'BASE_LONG' || signalCat === 'BASE_SHORT' || signalCat === 'PULLBACK_LONG' || signalCat === 'PULLBACK_SHORT' || signalCat === 'LONG_CONTINUATION' || signalCat === 'SHORT_CONTINUATION')
-              ? 'ACTIONABLE_NOW'
-              : (signalCat === 'LATE_LONG' || signalCat === 'LATE_SHORT')
-                ? 'WAIT_PULLBACK'
-                : 'WAITING'
-          ),
+          entryStatus: (c.actionableBlocked || c.timing?.actionableBlocked || (c.freshness?.isStale === true))
+            ? 'WAITING'
+            : (c.timing?.entryStatus ?? (
+              (signalCat === 'EARLY_LONG' || signalCat === 'EARLY_SHORT' || signalCat === 'BASE_LONG' || signalCat === 'BASE_SHORT' || signalCat === 'PULLBACK_LONG' || signalCat === 'PULLBACK_SHORT' || signalCat === 'LONG_CONTINUATION' || signalCat === 'SHORT_CONTINUATION')
+                ? 'ACTIONABLE_NOW'
+                : (signalCat === 'LATE_LONG' || signalCat === 'LATE_SHORT')
+                  ? 'WAIT_PULLBACK'
+                  : 'WAITING'
+            )),
           actionabilityScore: c.actionabilityScore,
           momentumStrengthScore: c.momentumStrengthScore,
           extensionScore: c.extensionScore,
@@ -322,7 +343,9 @@ export class FinalRanker {
       (r.entryStatus === 'ACTIONABLE_NOW' || r.entryStatus === 'CONFIRMED' || r.signalCategory === 'DECOUPLED_ALPHA') &&
       r.signalCategory !== 'LATE_LONG' &&
       r.signalCategory !== 'LATE_SHORT' &&
-      (r.timing?.chaseRiskScore ?? 0) <= 45
+      (r.timing?.chaseRiskScore ?? 0) <= 45 &&
+      !r.actionableBlocked &&
+      r.freshness?.isStale !== true
     ).slice(0, CONFIG.MAX_RESULTS);
 
     const watchlist = ranked.filter(r => 

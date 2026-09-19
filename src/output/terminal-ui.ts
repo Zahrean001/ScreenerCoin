@@ -142,6 +142,21 @@ export class TerminalUI {
           content += `  • Orderflow Event: ${eventColor(absorption.event)} | Confidence: ${absorption.confidence}/100 | Location: ${absorption.location}\n`;
           content += `  • Absorption Data : ${absorption.evidence.join(' | ')} | Trapped: ${absorption.trappedSide ?? 'N/A'}\n`;
         }
+        const cx = res.crossExchange ?? res.timing?.crossExchange;
+        if (cx && cx.status !== 'BINANCE_UNAVAILABLE') {
+          const cxColor = cx.scoreModifier > 0 ? chalk.green.bold : cx.scoreModifier < 0 ? chalk.red.bold : chalk.yellow;
+          const modStr = cx.scoreModifier > 0 ? `+${cx.scoreModifier}` : `${cx.scoreModifier}`;
+          content += `  • Cross-Exchange : ${cxColor(cx.status)} | Confidence: ${cx.confidence} | Mod: ${modStr}\n`;
+          const bybitR = cx.bybitFuturesReturn != null ? `${(cx.bybitFuturesReturn * 100).toFixed(2)}%` : 'N/A';
+          const binFR = cx.binanceFuturesReturn != null ? `${(cx.binanceFuturesReturn * 100).toFixed(2)}%` : 'N/A';
+          const binSR = cx.binanceSpotReturn != null ? `${(cx.binanceSpotReturn * 100).toFixed(2)}%` : 'N/A';
+          content += `  • Venue Delta    : Bybit Perps: ${bybitR} | Binance Perps: ${binFR} | Binance Spot: ${binSR}\n`;
+          if (cx.oiConfluence !== 'UNAVAILABLE') {
+            content += `  • OI Confluence  : ${cx.oiConfluence}\n`;
+          }
+        } else if (cx && cx.status === 'BINANCE_UNAVAILABLE') {
+          content += `  • Cross-Exchange : ${chalk.gray('BINANCE_UNAVAILABLE')} (Bybit standalone)\n`;
+        }
         if (res.timing) {
           const tSec = res.timing.elapsedSecondsSinceTrigger ?? 0;
           const triggerStr = tSec < 60 ? `${tSec}s ago` : `${Math.floor(tSec / 60)}m ${tSec % 60}s ago`;
