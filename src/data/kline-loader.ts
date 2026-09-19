@@ -2,7 +2,7 @@ import { BybitRest } from './bybit-rest.js';
 import { MarketDataHub } from './market-data-hub.js';
 import { CONFIG } from '../config.js';
 import { logger } from '../utils/logger.js';
-import { Timeframe } from './types.js';
+import { CandleTimeframe } from './types.js';
 
 export class KlineLoader {
   private log = logger.child('KlineLoader');
@@ -11,7 +11,8 @@ export class KlineLoader {
 
   async loadInitialCandles(symbols: string[]) {
     this.log.info(`Loading historical klines for ${symbols.length} symbols...`);
-    const totalCalls = symbols.length * CONFIG.TIMEFRAMES.length;
+    const allTimeframes = [...CONFIG.TIMEFRAMES, ...CONFIG.HIGHER_TIMEFRAMES];
+    const totalCalls = symbols.length * allTimeframes.length;
     const estTimeSec = Math.ceil(totalCalls / CONFIG.REST_MAX_REQUESTS_PER_SECOND);
     this.log.info(`Estimated time to load: ${estTimeSec} seconds`);
 
@@ -33,8 +34,9 @@ export class KlineLoader {
 
   async loadSymbolCandles(symbol: string) {
     try {
-      await Promise.all(CONFIG.TIMEFRAMES.map(async (tf: string) => {
-        const timeframe = tf as Timeframe;
+      const allTimeframes = [...CONFIG.TIMEFRAMES, ...CONFIG.HIGHER_TIMEFRAMES];
+      await Promise.all(allTimeframes.map(async (tf: string) => {
+        const timeframe = tf as CandleTimeframe;
         const candles = await this.rest.getKlines(symbol, timeframe, CONFIG.KLINE_HISTORY_LIMIT);
         for (const c of candles) {
           this.hub.updateCandle(symbol, timeframe, c);

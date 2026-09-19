@@ -28,7 +28,7 @@ import {
   MoveMaturity,
   EntryPotential,
   MTFConfluenceType,
-  VWAPAnalysis,
+  VWAPAnalysis, HTFContext,
   AbsorptionAnalysis
 } from '../data/types.js';
 import { CONFIG } from '../config.js';
@@ -50,6 +50,7 @@ export interface CandidateScores {
   moveMaturity?: MoveMaturity;
   entryPotential?: EntryPotential;
   mtfConfluence?: MTFConfluenceType;
+  htfContext?: HTFContext | null;
   oiCapitalFlow?: string;
   vwapAnalysis?: VWAPAnalysis | null;
   absorption?: AbsorptionAnalysis | null;
@@ -117,10 +118,15 @@ export class FinalRanker {
         rejectedFundingConflict++;
       }
 
+      const htfModifier = c.htfContext?.dataCompleteness === 1
+        ? (direction === 'LONG'
+          ? (c.htfContext.macroBias === 'LONG' ? 6 : c.htfContext.macroBias === 'SHORT' ? -8 : 0)
+          : (c.htfContext.macroBias === 'SHORT' ? 6 : c.htfContext.macroBias === 'LONG' ? -8 : 0))
+        : 0;
       const opportunityScore = direction === 'LONG' 
-        ? c.longScore.total 
+        ? Math.max(0, Math.min(100, c.longScore.total + htfModifier))
         : direction === 'SHORT' 
-          ? c.shortScore.total 
+          ? Math.max(0, Math.min(100, c.shortScore.total + htfModifier))
           : Math.max(c.longScore.total, c.shortScore.total);
 
       const finalScore = (CONFIG.OPPORTUNITY_WEIGHT * opportunityScore) + 
@@ -190,6 +196,7 @@ export class FinalRanker {
           moveMaturity: c.moveMaturity ?? c.timing?.moveMaturity,
           entryPotential: c.entryPotential ?? c.timing?.entryPotential,
           mtfConfluence: c.mtfConfluence ?? c.timing?.mtfConfluence,
+          htfContext: c.htfContext,
           oiCapitalFlow: c.oiCapitalFlow,
           vwapAnalysis: c.vwapAnalysis ?? c.timing?.vwapAnalysis,
           absorption: c.absorption ?? c.timing?.absorption,

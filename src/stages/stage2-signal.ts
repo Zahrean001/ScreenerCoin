@@ -5,7 +5,7 @@
 import { CandidateScores } from '../ranking/final-ranker.js';
 import { 
   MarketRegimeState, 
-  Timeframe, 
+  Timeframe, CandleTimeframe, HTFContext,
   TickerData, 
   CandleData, 
   IndicatorState, 
@@ -38,7 +38,7 @@ export interface ScreenerHubProvider {
   tickers: Map<string, TickerData>;
   prevTickers: Map<string, TickerData>;
   historicalOIDeltas?: Map<string, any>;
-  candles: Map<string, Map<Timeframe, CircularBuffer<CandleData>>>;
+  candles: Map<string, Map<CandleTimeframe, CircularBuffer<CandleData>>>;
   indicators: Map<string, IndicatorState>;
   volatilityHistory: Map<string, NumericRingBuffer>;
   orderbooks: Map<string, OrderbookSnapshot>;
@@ -53,7 +53,8 @@ export interface ScreenerHubProvider {
   get15mReturn?(symbol: string, currentTs?: number): any;
   getUniverseReturn?(windowMs: number, currentTs?: number): number | null;
   getSectorReturn?(sector: string, windowMs: number, currentTs?: number): number | null;
-  getCandles(symbol: string, tf: Timeframe): CircularBuffer<CandleData> | undefined;
+  getCandles(symbol: string, tf: CandleTimeframe): CircularBuffer<CandleData> | undefined;
+  getHTFContext?(symbol: string): HTFContext | null;
   getSymbolSector?(symbol: string): string;
 }
 
@@ -80,7 +81,8 @@ export class Stage2Signal {
     tier: LiquidityTier = 'B',
     priceChange5m?: number | null,
     priceChange1h?: number | null,
-    discoveryLane?: any
+    discoveryLane?: any,
+    htfContext?: HTFContext | null
   ): CandidateScores | null {
     const ticker = hub.tickers.get(symbol);
     const prevTicker = hub.prevTickers.get(symbol) || null;
@@ -112,8 +114,8 @@ export class Stage2Signal {
     const c5m = hub.getCandles(symbol, '5');
     const c15m = hub.getCandles(symbol, '15');
     const c1h = hub.getCandles(symbol, '60');
-
     if (!c5m || !c15m || !c1h) return null;
+    const resolvedHtfContext = htfContext ?? hub.getHTFContext?.(symbol) ?? null;
 
     // 1. Volatility calculation
     let volHistory = hub.volatilityHistory.get(symbol);
@@ -312,6 +314,7 @@ export class Stage2Signal {
       moveMaturity: timing.moveMaturity,
       entryPotential: timing.entryPotential,
       mtfConfluence: timing.mtfConfluence ?? mtfResult.type,
+      htfContext: resolvedHtfContext,
       oiCapitalFlow: oiFunding.capitalFlowLabel,
       vwapAnalysis: timing.vwapAnalysis,
       absorption,

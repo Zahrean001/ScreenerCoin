@@ -120,6 +120,11 @@ export class TerminalUI {
         if (res.mtfConfluence) {
           content += `  • MTF Confluence: ${chalk.blue(res.mtfConfluence)}\n`;
         }
+        if (res.htfContext) {
+          const htf = res.htfContext;
+          content += `  • HTF Context    : 1D ${htf.dailyTrend} | 4H ${htf.fourHourTrend} | ${htf.classification} (${htf.confidence}/100)\n`;
+          if (htf.warnings.length > 0) content += `  • HTF Warning    : ${htf.warnings.join(', ')}\n`;
+        }
         if (res.vwapAnalysis) {
           const va = res.vwapAnalysis;
           const sStr = va.sessionVwap?.vwap ? `$${va.sessionVwap.vwap}` : 'N/A';

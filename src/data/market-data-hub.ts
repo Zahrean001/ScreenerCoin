@@ -4,7 +4,7 @@
 
 import { 
   SymbolInfo, TickerData, CandleData, OrderbookSnapshot, 
-  TradeData, LiquidationData, Timeframe, IndicatorState, 
+  TradeData, LiquidationData, Timeframe, CandleTimeframe, IndicatorState,
   getSectorForCoin, PriceWindowMetric,
   FundingSettlement, CurrentFundingState, FundingState,
   OIDeltaSnapshot
@@ -19,13 +19,14 @@ import { CONFIG } from '../config.js';
 import { BybitRest } from './bybit-rest.js';
 import { logger } from '../utils/logger.js';
 import { SymbolIndicators } from '../indicators/incremental.js';
+import { HTFContextEngine } from '../engines/htf-context.js';
 
 export class MarketDataHub {
   public instruments = new Map<string, SymbolInfo>();
   public tickers = new Map<string, TickerData>();
   public prevTickers = new Map<string, TickerData>();
   public historicalOIDeltas = new Map<string, OIDeltaSnapshot>();
-  public candles = new Map<string, Map<Timeframe, CircularBuffer<CandleData>>>();
+  public candles = new Map<string, Map<CandleTimeframe, CircularBuffer<CandleData>>>();
   public indicators = new Map<string, IndicatorState>();
   public symbolIndicators = new Map<string, SymbolIndicators>();
   public volatilityHistory = new Map<string, NumericRingBuffer>();
@@ -48,6 +49,7 @@ export class MarketDataHub {
   public priceHistory5m = new Map<string, NumericRingBuffer>();
   
   private log = logger.child('MarketDataHub');
+  private htfContextEngine = new HTFContextEngine();
 
   constructor(private rest: BybitRest) {}
 
@@ -57,8 +59,11 @@ export class MarketDataHub {
     for (const inst of insts) {
       this.instruments.set(inst.symbol, inst);
       
-      const candleMap = new Map<Timeframe, CircularBuffer<CandleData>>();
+      const candleMap = new Map<CandleTimeframe, CircularBuffer<CandleData>>();
       for (const tf of CONFIG.TIMEFRAMES) {
+        candleMap.set(tf, new CircularBuffer<CandleData>(CONFIG.KLINE_HISTORY_LIMIT));
+      }
+      for (const tf of CONFIG.HIGHER_TIMEFRAMES) {
         candleMap.set(tf, new CircularBuffer<CandleData>(CONFIG.KLINE_HISTORY_LIMIT));
       }
       this.candles.set(inst.symbol, candleMap);
@@ -275,7 +280,7 @@ export class MarketDataHub {
     return this.fundingStates.get(symbol)?.history.length ?? 0;
   }
 
-  updateCandle(symbol: string, timeframe: Timeframe, candle: CandleData) {
+  updateCandle(symbol: string, timeframe: CandleTimeframe, candle: CandleData) {
     const key = `${symbol}:${timeframe}`;
 
     // P0 #1: Separate unconfirmed / forming candle from closed candle history
@@ -310,8 +315,10 @@ export class MarketDataHub {
       symInd = new SymbolIndicators();
       this.symbolIndicators.set(symbol, symInd);
     }
-    const state = symInd.updateFromCandle(timeframe, candle);
-    this.indicators.set(symbol, state);
+    if (CONFIG.TIMEFRAMES.includes(timeframe as Timeframe)) {
+      const state = symInd.updateFromCandle(timeframe as Timeframe, candle);
+      this.indicators.set(symbol, state);
+    }
 
     // P0 #2: Never project future timestamp into priceHistories (candle.timestamp + tfMs removed).
     // Realtime price history is fed directly from actual event timestamps (trade/ticker).
@@ -610,8 +617,13 @@ export class MarketDataHub {
     return this.tickers;
   }
 
-  getCandles(symbol: string, timeframe: Timeframe): CircularBuffer<CandleData> | undefined {
+  getCandles(symbol: string, timeframe: CandleTimeframe): CircularBuffer<CandleData> | undefined {
     return this.candles.get(symbol)?.get(timeframe);
+  }
+
+  getHTFContext(symbol: string) {
+    const candleMap = this.candles.get(symbol);
+    return this.htfContextEngine.analyze(candleMap?.get('240'), candleMap?.get('D'));
   }
 
   getCurrentCandle(symbol: string, timeframe: Timeframe): CandleData | undefined {

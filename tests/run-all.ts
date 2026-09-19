@@ -21,7 +21,8 @@ const testSuites = [
   'tests/p5-event-discovery.test.ts',
   'tests/discovery-engine-upgrade.test.ts',
   'tests/absorption-engine.test.ts',
-  'tests/anchored-vwap.test.ts'
+  'tests/anchored-vwap.test.ts',
+  'tests/htf-context.test.ts'
 ];
 
 console.log('====================================================');

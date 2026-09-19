@@ -409,6 +409,7 @@ export interface TimingAnalysis {
   discoveryLabel?: DiscoveryLabel;
   entryPotential?: EntryPotential;
   mtfConfluence?: MTFConfluenceType;
+  htfContext?: HTFContext | null;
   orderbookImbalanceRatio?: number;
   orderbookConfidenceModifier?: number;
   orderbookWarning?: string | null;
@@ -508,6 +509,8 @@ export type LiquidityTier = 'A' | 'B' | 'C' | 'D';
 // ---- Timeframes ----
 
 export type Timeframe = '5' | '15' | '60';
+export type HigherTimeframe = '240' | 'D';
+export type CandleTimeframe = Timeframe | HigherTimeframe;
 
 export const TIMEFRAMES: readonly Timeframe[] = ['5', '15', '60'] as const;
 
@@ -516,6 +519,21 @@ export const TIMEFRAME_MS: Record<Timeframe, number> = {
   '15': 15 * 60 * 1000,
   '60': 60 * 60 * 1000,
 };
+
+export const HIGHER_TIMEFRAME_MS: Record<HigherTimeframe, number> = {
+  '240': 240 * 60 * 1000,
+  'D': 24 * 60 * 60 * 1000,
+};
+
+export interface HTFContext {
+  dailyTrend: TrendState;
+  fourHourTrend: TrendState;
+  macroBias: 'LONG' | 'SHORT' | 'NEUTRAL';
+  classification: 'MACRO_ALIGNED' | 'EARLY_MACRO_ROTATION' | 'COUNTER_TREND' | 'MACRO_BEARISH_RALLY' | 'MACRO_BULLISH_PULLBACK' | 'HTF_NEUTRAL';
+  confidence: number;
+  dataCompleteness: number;
+  warnings: string[];
+}
 
 // ---- Market Regime ----
 
@@ -684,6 +702,7 @@ export interface ScreenerCandidate {
   moveMaturity?: MoveMaturity;
   entryPotential?: EntryPotential;
   mtfConfluence?: MTFConfluenceType;
+  htfContext?: HTFContext | null;
   oiCapitalFlow?: string;
   vwapAnalysis?: VWAPAnalysis | null;
   absorption?: AbsorptionAnalysis | null;

@@ -4,8 +4,8 @@
 
 export const CONFIG = {
   // ---- Exchange ----
-  BYBIT_REST_URL: process.env.BYBIT_BASE_URL || 'https://api.bybit.biz',
-  BYBIT_WS_URL: process.env.BYBIT_WS_URL || 'wss://stream.bybit.biz/v5/public/linear',
+  BYBIT_REST_URL: process.env.BYBIT_BASE_URL || 'https://api.bybit.com',
+  BYBIT_WS_URL: process.env.BYBIT_WS_URL || 'wss://stream.bybit.com/v5/public/linear',
 
   // ---- Stage 1: Liquidity Tiers (24h turnover in USDT) ----
   LIQUIDITY_TIERS: {
@@ -86,6 +86,7 @@ export const CONFIG = {
 
   // ---- Kline History ----
   TIMEFRAMES: ['5', '15', '60'] as const,
+  HIGHER_TIMEFRAMES: ['240', 'D'] as const,
   KLINE_HISTORY_LIMIT: 200,  // candles to load initially
 
   // ---- Execution Score Thresholds ----
