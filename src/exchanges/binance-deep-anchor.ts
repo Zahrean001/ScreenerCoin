@@ -40,6 +40,10 @@ interface BinanceOI {
   openInterest: string;
 }
 
+interface BinanceOIHistory {
+  sumOpenInterest: string;
+}
+
 interface BinanceSpotTicker {
   symbol: string;
   lastPrice: string;
@@ -52,6 +56,7 @@ interface BybitCandidateSnapshot {
   symbol: string;
   lastPrice: number;
   priceChange24hPcnt: number;
+  priceChange15mPcnt: number | null;
   openInterestValue: number;
   prevOpenInterestValue?: number;
 }
@@ -140,26 +145,33 @@ export class BinanceDeepAnchorEngine {
   private classify(
     bybit: BybitCandidateSnapshot,
     mapping: SymbolMapping,
-    futures: { ticker: BinanceFuturesTicker; oi: BinanceOI } | null,
-    spot: BinanceSpotTicker | null,
+    futures: { ticker: BinanceFuturesTicker; oi: BinanceOI; return15m: number | null; oiDelta: number | null } | null,
+    spot: (BinanceSpotTicker & { return15m: number | null }) | null,
     startMs: number
   ): CrossExchangeAnalysis {
-    const bybitReturn = bybit.priceChange24hPcnt;
-    const binanceFutReturn = futures?.ticker ? parseFloat(futures.ticker.priceChangePercent) / 100 : null;
-    const binanceSpotReturn = spot ? parseFloat(spot.priceChangePercent) / 100 : null;
+    const bybitReturn = bybit.priceChange15mPcnt;
+    if (bybitReturn === null) {
+      return this.makeResult('STALE_EXTERNAL_DATA', 0, 'LOW',
+        'Bybit 15m return unavailable for cross-exchange comparison', startMs, 'UNAVAILABLE', bybit);
+    }
+    const binanceFutReturn = futures?.return15m ?? null;
+    const binanceSpotReturn = spot?.return15m ?? null;
 
     // OI Delta estimation (we only have current OI from Binance, compare direction)
     const binanceOI = futures?.oi ? parseFloat(futures.oi.openInterest) : null;
+    const binanceOIDelta = futures?.oiDelta ?? null;
     const bybitOIDelta = bybit.prevOpenInterestValue
       ? (bybit.openInterestValue - bybit.prevOpenInterestValue) / bybit.prevOpenInterestValue
       : null;
 
     // Determine OI Confluence
     let oiConfluence: CrossExchangeAnalysis['oiConfluence'] = 'UNAVAILABLE';
-    if (bybitOIDelta !== null && binanceOI !== null) {
-      // We can only check if both OI are present; Binance doesn't give us prev OI in a single call
-      // So we classify based on available data quality
-      oiConfluence = bybitOIDelta > 0.01 ? 'BOTH_EXPANDING' : bybitOIDelta < -0.01 ? 'BOTH_CONTRACTING' : 'UNAVAILABLE';
+    if (bybitOIDelta !== null && binanceOIDelta !== null) {
+      oiConfluence = bybitOIDelta > 0.01 && binanceOIDelta > 0.01
+        ? 'BOTH_EXPANDING'
+        : bybitOIDelta < -0.01 && binanceOIDelta < -0.01
+          ? 'BOTH_CONTRACTING'
+          : 'DIVERGENT';
     }
 
     // Classification logic based on directional alignment
@@ -168,7 +180,7 @@ export class BinanceDeepAnchorEngine {
     let confidence: 'HIGH' | 'MEDIUM' | 'LOW';
     let reason: string;
 
-    const bybitMoving = Math.abs(bybitReturn) > 0.005; // > 0.5% 24h change
+    const bybitMoving = Math.abs(bybitReturn) > 0.001;
     const hasFutures = binanceFutReturn !== null;
     const hasSpot = binanceSpotReturn !== null;
 
@@ -189,7 +201,7 @@ export class BinanceDeepAnchorEngine {
       modifier = 3;
       confidence = 'HIGH';
       reason = 'Bybit, Binance Futures, and Binance Spot all aligned';
-      oiConfluence = bybitOIDelta !== null && bybitOIDelta > 0.005 ? 'BOTH_EXPANDING' : oiConfluence;
+      oiConfluence = oiConfluence === 'BOTH_EXPANDING' ? oiConfluence : 'UNAVAILABLE';
     } else if (sameDirectionSpot && spotMagnitudeAligned && hasSpot) {
       // Spot actively confirming the futures move
       const spotVol = spot ? parseFloat(spot.quoteVolume) : 0;
@@ -241,7 +253,7 @@ export class BinanceDeepAnchorEngine {
       binanceFuturesReturn: binanceFutReturn,
       binanceSpotReturn: binanceSpotReturn,
       bybitOIDelta: bybitOIDelta,
-      binanceOIDelta: null, // Single snapshot, no delta available
+      binanceOIDelta,
       oiConfluence,
       reason,
       timestamp: Date.now(),
@@ -262,7 +274,7 @@ export class BinanceDeepAnchorEngine {
       status,
       confidence,
       scoreModifier: Math.max(-5, Math.min(5, modifier)),
-      bybitFuturesReturn: bybit.priceChange24hPcnt,
+      bybitFuturesReturn: bybit.priceChange15mPcnt ?? bybit.priceChange24hPcnt,
       binanceFuturesReturn: null,
       binanceSpotReturn: null,
       bybitOIDelta: null,
@@ -276,18 +288,29 @@ export class BinanceDeepAnchorEngine {
 
   private async fetchFuturesData(
     symbol: string
-  ): Promise<{ ticker: BinanceFuturesTicker; oi: BinanceOI }> {
+  ): Promise<{ ticker: BinanceFuturesTicker; oi: BinanceOI; return15m: number | null; oiDelta: number | null }> {
     for (const base of FUTURES_MIRRORS) {
       try {
-        const [tickerRes, oiRes] = await Promise.all([
+        const [tickerRes, oiRes, klineRes, oiHistoryRes] = await Promise.all([
           axios.get(`${base}/fapi/v1/ticker/24hr?symbol=${symbol}`, {
             timeout: this.requestTimeoutMs
           }).then(r => r.data),
           axios.get(`${base}/fapi/v1/openInterest?symbol=${symbol}`, {
             timeout: this.requestTimeoutMs
+          }).then(r => r.data),
+          axios.get(`${base}/fapi/v1/klines?symbol=${symbol}&interval=15m&limit=2`, {
+            timeout: this.requestTimeoutMs
+          }).then(r => r.data),
+          axios.get(`${base}/futures/data/openInterestHist?symbol=${symbol}&period=15m&limit=2`, {
+            timeout: this.requestTimeoutMs
           }).then(r => r.data)
         ]);
-        return { ticker: tickerRes, oi: oiRes };
+        return {
+          ticker: tickerRes,
+          oi: oiRes,
+          return15m: this.klineReturn(klineRes),
+          oiDelta: this.oiDelta(oiHistoryRes)
+        };
       } catch {
         // try next mirror
       }
@@ -295,18 +318,41 @@ export class BinanceDeepAnchorEngine {
     throw new Error('All Binance futures endpoints failed or timed out');
   }
 
-  private async fetchSpotData(symbol: string): Promise<BinanceSpotTicker> {
+  private async fetchSpotData(symbol: string): Promise<BinanceSpotTicker & { return15m: number | null }> {
     for (const base of SPOT_MIRRORS) {
       try {
-        const res = await axios.get(`${base}/api/v3/ticker/24hr?symbol=${symbol}`, {
-          timeout: this.requestTimeoutMs
-        });
-        return res.data;
+        const [res, klineRes] = await Promise.all([
+          axios.get(`${base}/api/v3/ticker/24hr?symbol=${symbol}`, {
+            timeout: this.requestTimeoutMs
+          }),
+          axios.get(`${base}/api/v3/klines?symbol=${symbol}&interval=15m&limit=2`, {
+            timeout: this.requestTimeoutMs
+          })
+        ]);
+        return { ...res.data, return15m: this.klineReturn(klineRes.data) };
       } catch {
         // try next mirror
       }
     }
     throw new Error('All Binance spot endpoints failed or timed out');
+  }
+
+  private klineReturn(data: unknown): number | null {
+    if (!Array.isArray(data) || data.length < 2) return null;
+    const previous = Number(data[data.length - 2]?.[4]);
+    const latest = Number(data[data.length - 1]?.[4]);
+    return Number.isFinite(previous) && previous > 0 && Number.isFinite(latest)
+      ? (latest - previous) / previous
+      : null;
+  }
+
+  private oiDelta(data: unknown): number | null {
+    if (!Array.isArray(data) || data.length < 2) return null;
+    const previous = Number((data[data.length - 2] as BinanceOIHistory)?.sumOpenInterest);
+    const latest = Number((data[data.length - 1] as BinanceOIHistory)?.sumOpenInterest);
+    return Number.isFinite(previous) && previous > 0 && Number.isFinite(latest)
+      ? (latest - previous) / previous
+      : null;
   }
 
   getCircuitState() {

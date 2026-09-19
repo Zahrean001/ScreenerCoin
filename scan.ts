@@ -273,6 +273,7 @@ async function runScan() {
         symbol: s.symbol,
         lastPrice: s.ticker.lastPrice,
         priceChange24hPcnt: s.ticker.price24hPcnt,
+        priceChange15mPcnt: hub.get15mReturn(s.symbol).value,
         openInterestValue: s.ticker.openInterestValue
       }))
     );
@@ -502,6 +503,7 @@ async function runScan() {
       symbol: s.symbol,
       lastPrice: s.ticker.lastPrice,
       priceChange24hPcnt: s.ticker.price24hPcnt,
+      priceChange15mPcnt: hub.get15mReturn(s.symbol).value,
       openInterestValue: s.ticker.openInterestValue
     }))
   );
