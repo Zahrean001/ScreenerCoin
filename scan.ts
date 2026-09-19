@@ -24,7 +24,7 @@ import { Stage2Signal } from './src/stages/stage2-signal.js';
 import { CorrelationFilter } from './src/ranking/correlation.js';
 import { FinalRanker, CandidateScores } from './src/ranking/final-ranker.js';
 import { TerminalUI } from './src/output/terminal-ui.js';
-import { renderDetailedCard } from './src/output/ui-formatter.js';
+import { renderDetailedCard, pad } from './src/output/ui-formatter.js';
 import { BinanceSymbolResolver } from './src/exchanges/binance-symbol-resolver.js';
 import { BinanceDeepAnchorEngine } from './src/exchanges/binance-deep-anchor.js';
 import chalk from 'chalk';
@@ -57,6 +57,7 @@ async function runScan() {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
+  const BOX_WIDTH = 81;
 
   // ═══ BOOT HEADER — FIGlet Random Number Art ═══
   const THICK_DIGITS = '23456789';
@@ -95,7 +96,7 @@ async function runScan() {
     '            888888   888888   88888888  88   888',
   ];
 
-  const BOX_W = W + 14; // 83
+  const BOX_W = 81;
 
   console.log('');
   console.log(chalk.cyan('  ╔' + '═'.repeat(BOX_W) + '╗'));
@@ -104,30 +105,28 @@ async function runScan() {
   // TRADE
   for (const tpl of TRADE_TPL) {
     const line = randomizeLine(tpl);
-    console.log(chalk.cyan('  ║') + chalk.white.bold('  ' + line) + ' '.repeat(Math.max(0, BOX_W - line.length - 2)) + chalk.cyan('║'));
+    console.log(chalk.cyan('  ║') + pad('  ' + chalk.white.bold(line), BOX_W) + chalk.cyan('║'));
   }
   console.log(chalk.cyan('  ║' + ' '.repeat(BOX_W) + '║'));
 
   // SCREENER
   for (const tpl of SCREENER_TPL) {
     const line = randomizeLine(tpl);
-    console.log(chalk.cyan('  ║') + chalk.gray('  ' + line) + ' '.repeat(Math.max(0, BOX_W - line.length - 2)) + chalk.cyan('║'));
+    console.log(chalk.cyan('  ║') + pad('  ' + chalk.gray(line), BOX_W) + chalk.cyan('║'));
   }
   console.log(chalk.cyan('  ║' + ' '.repeat(BOX_W) + '║'));
 
   // COIN
   for (const tpl of COIN_TPL) {
     const line = randomizeLine(tpl);
-    console.log(chalk.cyan('  ║') + chalk.white.bold('  ' + line) + ' '.repeat(Math.max(0, BOX_W - line.length - 2)) + chalk.cyan('║'));
+    console.log(chalk.cyan('  ║') + pad('  ' + chalk.white.bold(line), BOX_W) + chalk.cyan('║'));
   }
 
   console.log(chalk.cyan('  ║' + ' '.repeat(BOX_W) + '║'));
   const tagText = 'USDT Perpetual Crypto Screener — Early Momentum Radar v2.0';
   const timeText = `Scan Time: ${scanTime} WIB`;
-  const padTag = Math.max(0, BOX_W - tagText.length - 2);
-  const padTime = Math.max(0, BOX_W - timeText.length - 2);
-  console.log(chalk.cyan('  ║') + '  ' + chalk.yellow(tagText) + ' '.repeat(padTag) + chalk.cyan('║'));
-  console.log(chalk.cyan('  ║') + '  ' + chalk.gray(timeText) + ' '.repeat(padTime) + chalk.cyan('║'));
+  console.log(chalk.cyan('  ║') + pad('  ' + chalk.yellow(tagText), BOX_W) + chalk.cyan('║'));
+  console.log(chalk.cyan('  ║') + pad('  ' + chalk.gray(timeText), BOX_W) + chalk.cyan('║'));
   console.log(chalk.cyan('  ║' + ' '.repeat(BOX_W) + '║'));
   console.log(chalk.cyan('  ╚' + '═'.repeat(BOX_W) + '╝'));
   console.log('');
@@ -140,12 +139,12 @@ async function runScan() {
     requestedCoins = cliArgs.join(' ').split(/[\s,]+/).filter(Boolean);
     console.log(chalk.cyan(`  [*] Mode CLI Target: `) + chalk.yellow.bold(requestedCoins.join(', ')) + '\n');
   } else {
-    console.log(chalk.cyan.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-    console.log(chalk.cyan.bold('  │') + chalk.white.bold('  🎯  PILIH MODE SCAN                                                       ') + chalk.cyan.bold('│'));
-    console.log(chalk.cyan.bold('  ├─────────────────────────────────────────────────────────────────────────────┤'));
-    console.log(chalk.cyan.bold('  │') + chalk.white('  [1] ') + chalk.green.bold('Auto Market Radar') + chalk.gray('   (Scan 570+ koin USDT Perp secara otomatis)     ') + chalk.cyan.bold('│'));
-    console.log(chalk.cyan.bold('  │') + chalk.white('  [2] ') + chalk.yellow.bold('Custom Coin Scan') + chalk.gray('    (Scan & analisa mendalam koin yang Anda minta) ') + chalk.cyan.bold('│'));
-    console.log(chalk.cyan.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
+    console.log(chalk.gray('  ┌' + '─'.repeat(BOX_W) + '┐'));
+    console.log(chalk.gray('  │') + pad(chalk.white.bold('  PILIH MODE SCAN'), BOX_W) + chalk.gray('│'));
+    console.log(chalk.gray('  ├' + '─'.repeat(BOX_W) + '┤'));
+    console.log(chalk.gray('  │') + pad(chalk.white('  [1] ') + chalk.green.bold('Auto Market Radar') + chalk.gray('   (Scan 570+ koin USDT Perp secara otomatis)'), BOX_W) + chalk.gray('│'));
+    console.log(chalk.gray('  │') + pad(chalk.white('  [2] ') + chalk.yellow.bold('Custom Coin Scan') + chalk.gray('    (Scan & analisa mendalam koin yang Anda minta)'), BOX_W) + chalk.gray('│'));
+    console.log(chalk.gray('  └' + '─'.repeat(BOX_W) + '┘'));
     console.log('');
 
     const rl = readline.createInterface({ input, output });
@@ -301,19 +300,19 @@ async function runScan() {
 
     // ═══ RENDER CUSTOM REPORT CARDS ═══
     console.log('');
-    console.log(chalk.cyan('  ╔═══════════════════════════════════════════════════════════════════════════════════╗'));
-    console.log(chalk.cyan('  ║') + chalk.white.bold('  📋  HASIL ANALISA MENDALAM KOIN PERMINTAAN ANDA                                ') + chalk.cyan('║'));
-    console.log(chalk.cyan('  ╚═══════════════════════════════════════════════════════════════════════════════════╝'));
+    console.log(chalk.gray('  ┌' + '─'.repeat(BOX_WIDTH) + '┐'));
+    console.log(chalk.gray('  │') + pad(chalk.white.bold('  AUDIT MENDALAM KOIN PERMINTAAN (CUSTOM SCAN)'), BOX_WIDTH) + chalk.gray('│'));
+    console.log(chalk.gray('  └' + '─'.repeat(BOX_WIDTH) + '┘'));
 
     for (const score of customScores) {
       console.log(renderDetailedCard(score));
     }
 
     console.log('');
-    console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.gray('  ' + '─'.repeat(BOX_WIDTH)));
     console.log(chalk.gray(`  Custom Scan selesai dalam ${totalElapsed} | ${scanTime} WIB`));
     console.log(chalk.gray(`  Untuk analisa koin lain, jalankan kembali scan.bat`));
-    console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.gray('  ' + '─'.repeat(BOX_WIDTH)));
     console.log('');
 
     process.exit(0);
@@ -437,20 +436,21 @@ async function runScan() {
 
   // Footer
   console.log('');
-  console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.gray('  ' + '─'.repeat(BOX_WIDTH)));
   console.log(chalk.gray(`  Trade Screener Coin v2.1.2 | Scan completed in ${totalElapsed}`));
   console.log(chalk.gray(`  ${scanTime} WIB | Refresh: jalankan scan.bat lagi`));
-  console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.gray('  ' + '─'.repeat(BOX_WIDTH)));
   console.log('');
 
   process.exit(0);
 }
 
 runScan().catch(e => {
+  const ERROR_BOX_WIDTH = 81;
   console.error('');
-  console.error(chalk.red.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-  console.error(chalk.red.bold('  │  ❌  SCAN ERROR                                                            │'));
-  console.error(chalk.red.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
+  console.error(chalk.red.bold('  ┌' + '─'.repeat(ERROR_BOX_WIDTH) + '┐'));
+  console.error(chalk.red.bold('  │') + pad(chalk.white.bold('  SCAN ERROR'), ERROR_BOX_WIDTH) + chalk.red.bold('│'));
+  console.error(chalk.red.bold('  └' + '─'.repeat(ERROR_BOX_WIDTH) + '┘'));
   console.error(chalk.red(`  ${e.message || e}`));
   console.error('');
   process.exit(1);

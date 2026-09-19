@@ -7,7 +7,8 @@ import {
   renderDetailedCard,
   formatPrice,
   formatPercent,
-  renderGauge
+  renderGauge,
+  pad
 } from './ui-formatter.js';
 import chalk from 'chalk';
 
@@ -31,25 +32,22 @@ export class TerminalUI {
 
     let content = '\n';
     content += chalk.gray('  ┌' + '─'.repeat(W) + '┐\n');
-    content += chalk.gray('  │') + chalk.white.bold('  TRADE SCREENER COIN v2.1.2 — QUANTITATIVE MOMENTUM RADAR                    ') + chalk.gray('│\n');
+    content += chalk.gray('  │') + pad(chalk.white.bold('  TRADE SCREENER COIN v2.1.2 — QUANTITATIVE MOMENTUM RADAR'), W) + chalk.gray('│\n');
     content += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
     
     const btcStr = `  BTC Market: $${output.btcPrice.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} (${signedPercent(output.btcChange1h)} 1h) | Macro Regime: ${regimeColor(output.regime)}`;
-    const pad1 = Math.max(0, W - 66 - output.regime.length);
-    content += chalk.gray('  │') + btcStr + ' '.repeat(pad1) + chalk.gray('│\n');
+    content += chalk.gray('  │') + pad(btcStr, W) + chalk.gray('│\n');
 
     const scanStr = `  Universe  : ${output.totalSymbols} USDT Perps | Scan Time: ${(output.scanLatencyMs / 1000).toFixed(1)}s | Updated: ${output.timestamp}`;
-    const pad2 = Math.max(0, W - 56 - output.timestamp.length);
-    content += chalk.gray('  │') + scanStr + ' '.repeat(pad2) + chalk.gray('│\n');
+    content += chalk.gray('  │') + pad(scanStr, W) + chalk.gray('│\n');
 
     const discStr = `  Discovery : ${actionable.length} Actionable | ${watchlist.length} Watchlist | ${rejected.length} Avoid (High Risk)`;
-    const pad3 = Math.max(0, W - 58);
-    content += chalk.gray('  │') + discStr + ' '.repeat(pad3) + chalk.gray('│\n');
+    content += chalk.gray('  │') + pad(discStr, W) + chalk.gray('│\n');
 
     if (output.diagnostics) {
       const d = output.diagnostics;
       const diagStr = `  Pipeline  : ${d.universeSize} universe -> ${d.stage1Candidates} passed S1 -> ${d.stage2Candidates} analyzed -> ${d.qualifiedCandidates} final`;
-      content += chalk.gray('  │') + chalk.gray(diagStr) + ' '.repeat(Math.max(0, W - diagStr.length)) + chalk.gray('│\n');
+      content += chalk.gray('  │') + pad(chalk.gray(diagStr), W) + chalk.gray('│\n');
     }
     content += chalk.gray('  └' + '─'.repeat(W) + '┘\n');
 

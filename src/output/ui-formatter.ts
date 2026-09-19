@@ -225,6 +225,49 @@ export function generateTradePlan(
   };
 }
 
+const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+
+export function stripAnsi(str: string): string {
+  return str.replace(ANSI_REGEX, '');
+}
+
+export function pad(str: string, len: number): string {
+  const visible = stripAnsi(str);
+  const diff = len - visible.length;
+  return diff > 0 ? str + ' '.repeat(diff) : str;
+}
+
+const wrap = (text: string, maxLen: number): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const wVisLen = stripAnsi(w).length;
+    if (wVisLen > maxLen) {
+      if (cur) {
+        lines.push(cur);
+        cur = '';
+      }
+      let rem = w;
+      while (stripAnsi(rem).length > maxLen) {
+        lines.push(rem.slice(0, maxLen));
+        rem = rem.slice(maxLen);
+      }
+      cur = rem;
+      continue;
+    }
+    const testLine = cur ? `${cur} ${w}` : w;
+    if (stripAnsi(testLine).length <= maxLen) {
+      cur = testLine;
+    } else {
+      if (cur) lines.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+};
+
 /**
  * Render institutional quantitative card without AI slop.
  */
@@ -272,35 +315,16 @@ export function renderDetailedCard(c: ScreenerCandidate | CandidateScores, rank?
   const rankPrefix = rank ? `#${rank} ` : (isCandidate && (c as ScreenerCandidate).rank ? `#${(c as ScreenerCandidate).rank} ` : '');
 
   const W = 81;
-  const pad = (str: string, len: number) => {
-    const stripped = str.replace(/\u001b\[[0-9;]*m/g, '');
-    const diff = len - stripped.length;
-    return diff > 0 ? str + ' '.repeat(diff) : str;
-  };
-
-  const wrap = (text: string, maxLen: number): string[] => {
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let cur = '';
-    for (const w of words) {
-      if ((cur + (cur ? ' ' : '') + w).length <= maxLen) {
-        cur += (cur ? ' ' : '') + w;
-      } else {
-        if (cur) lines.push(cur);
-        cur = w;
-      }
-    }
-    if (cur) lines.push(cur);
-    return lines;
-  };
 
   let out = '\n';
   out += chalk.gray('  ┌' + '─'.repeat(W) + '┐\n');
   
-  // Header line
+  // Header line with exact padding
   const headLeft = `  ${chalk.yellow.bold(rankPrefix + sym)}  ${sideTag}`;
   const headRight = `${verdict.badge}  `;
-  out += chalk.gray('  │') + pad(headLeft, W - 28) + pad(headRight, 28) + chalk.gray('│\n');
+  const space = Math.max(1, W - stripAnsi(headLeft).length - stripAnsi(headRight).length);
+  const headerContent = headLeft + ' '.repeat(space) + headRight;
+  out += chalk.gray('  │') + pad(headerContent, W) + chalk.gray('│\n');
   out += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
   const printRow = (label: string, value: string, colorFn?: (s: string) => string): string => {
@@ -317,7 +341,7 @@ export function renderDetailedCard(c: ScreenerCandidate | CandidateScores, rank?
   };
 
   // Section 1: Trade Setup & Plan
-  out += chalk.gray('  │') + chalk.cyan.bold('  [1] RENCANA TRADING (SETUP)') + ' '.repeat(W - 29) + chalk.gray('│\n');
+  out += chalk.gray('  │') + pad(chalk.cyan.bold('  [1] RENCANA TRADING (SETUP)'), W) + chalk.gray('│\n');
   out += printRow('Aksi', verdict.actionText);
   out += printRow('Area Entry', `${chalk.cyan.bold(plan.entryZone)} (Zona Support VWAP)`);
   out += printRow('Stop Loss', `${chalk.red.bold(plan.stopLoss)} (${plan.slPercent})`);
@@ -327,7 +351,7 @@ export function renderDetailedCard(c: ScreenerCandidate | CandidateScores, rank?
   out += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
   // Section 2: Quantitative Metrics & Risk
-  out += chalk.gray('  │') + chalk.cyan.bold('  [2] METRIK KUANTITATIF & RISIKO') + ' '.repeat(W - 33) + chalk.gray('│\n');
+  out += chalk.gray('  │') + pad(chalk.cyan.bold('  [2] METRIK KUANTITATIF & RISIKO'), W) + chalk.gray('│\n');
   out += printRow('Skor Setup', `${scoreColor(scoreGauge)} ${rawScore.toFixed(1)}/100 (Grade: ${rating})`);
   out += printRow('Chase Risk', `${chaseColor(chaseGauge)} ${chaseScore}/100 [${chaseScore < 30 ? 'Aman' : chaseScore < 55 ? 'Sedang' : 'Tinggi'}]`);
   
@@ -341,14 +365,14 @@ export function renderDetailedCard(c: ScreenerCandidate | CandidateScores, rank?
   out += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
   // Section 3: Market & Liquidity Data
-  out += chalk.gray('  │') + chalk.cyan.bold('  [3] DATA PASAR & LIKUIDITAS') + ' '.repeat(W - 29) + chalk.gray('│\n');
+  out += chalk.gray('  │') + pad(chalk.cyan.bold('  [3] DATA PASAR & LIKUIDITAS'), W) + chalk.gray('│\n');
   out += printRow('Harga', `${chalk.white.bold(formatPrice(price))} | 24j: ${formatPercent(p24)} | 1j: ${formatPercent(p1h)} | 5m: ${formatPercent(p5m)}`);
   out += printRow('Turnover 24j', `${formatUSD(turnover)} (Tier ${c.liquidityTier}) | Funding: ${(funding * 100).toFixed(4)}%`);
 
   out += chalk.gray('  ├' + '─'.repeat(W) + '┤\n');
 
   // Section 4: Orderflow & Multi-Venue Verification
-  out += chalk.gray('  │') + chalk.cyan.bold('  [4] ARUS MODAL & KONFIRMASI LINTAS BURSA') + ' '.repeat(W - 42) + chalk.gray('│\n');
+  out += chalk.gray('  │') + pad(chalk.cyan.bold('  [4] ARUS MODAL & KONFIRMASI LINTAS BURSA'), W) + chalk.gray('│\n');
   out += printRow('Arus Modal', flowText);
   out += printRow('Level VWAP', vwapText);
   out += printRow('Lintas Bursa', cx.text, cx.color);
