@@ -23,6 +23,16 @@ export class BybitRest {
         }
         return response.data.result;
       } catch (err) {
+        const errorCode = typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code?: unknown }).code)
+          : '';
+        if (errorCode === 'CERT_HAS_EXPIRED' || errorCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
+          throw new Error(
+            `Bybit TLS certificate validation failed for ${CONFIG.BYBIT_REST_URL}. ` +
+            'Check the Windows clock, root certificates, proxy/antivirus HTTPS inspection, ' +
+            'or set BYBIT_BASE_URL to the documented endpoint for your region. TLS validation remains enabled.'
+          );
+        }
         this.log.error(`REST request failed for ${endpoint}`, { error: String(err) });
         throw err;
       }

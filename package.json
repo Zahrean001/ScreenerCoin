@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "scan:built": "npm.cmd run build && node dist/scan.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx tests/run-all.ts"
   },

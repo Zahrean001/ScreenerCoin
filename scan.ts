@@ -232,6 +232,9 @@ async function runScan() {
     const btcTicker = hub.tickers.get('BTCUSDT')!;
     const btcInd = hub.indicators.get('BTCUSDT')!;
     const btcCandles15 = hub.getCandles('BTCUSDT', '15');
+    if (!btcCandles15) {
+      throw new Error('BTC 15m candles were not loaded; cannot analyze market regime.');
+    }
     const currentRegime = regimeEngine.analyze(btcInd, btcTicker, btcCandles15);
 
     const regimeIcon = currentRegime.regime.includes('BULL') ? '🟢' : currentRegime.regime.includes('BEAR') ? '🔴' : '🟡';
@@ -288,8 +291,8 @@ async function runScan() {
 
       // Find if it was ranked in results, watchlist, or quarantined
       const rankedResult = rankerOutput.results.find(r => r.symbol === sym);
-      const rankedWatch = rankerOutput.watchlist.find(w => w.symbol === sym);
-      const rankedRej = rankerOutput.rejectedSignals.find(x => x.symbol === sym);
+      const rankedWatch = rankerOutput.watchlist?.find(w => w.symbol === sym);
+      const rankedRej = rankerOutput.rejectedSignals?.find(x => x.symbol === sym);
 
       let statusBadge = chalk.yellow('⏳ WAIT / MONITOR');
       if (rankedResult) {
@@ -357,16 +360,15 @@ async function runScan() {
 
       const exec = score.executionScore;
       if (exec) {
-        const slPrice = exec.suggestedStopLoss ? `$${exec.suggestedStopLoss.toFixed(4)}` : 'S/R Based';
-        const tp1Price = exec.suggestedTakeProfit1 ? `$${exec.suggestedTakeProfit1.toFixed(4)}` : '2x ATR Target';
-        const slDist = exec.stopLossDistancePct ? `${(exec.stopLossDistancePct * 100).toFixed(2)}%` : '< 2.5%';
-        const rrStr = (exec.riskRewardRatio !== undefined && exec.riskRewardRatio !== null) ? `R:R 1:${exec.riskRewardRatio.toFixed(1)}` : 'R:R Dynamic';
-        console.log(chalk.gray(`  │  Risk/Reward    : `) + chalk.green.bold(rrStr) + chalk.gray(` | SL: `) + chalk.red(slPrice) + chalk.gray(` (Jarak: ${slDist}) | TP1: `) + chalk.green(tp1Price));
+        const slippage = exec.slippageBps !== null && exec.slippageBps !== undefined
+          ? `${exec.slippageBps.toFixed(2)} bps`
+          : 'N/A';
+        console.log(chalk.gray(`  │  Execution      : `) + chalk.green.bold(`${exec.total.toFixed(1)}/100`) + chalk.gray(` | Slippage: ${slippage} | ${exec.passed ? 'PASS' : 'REVIEW'}`));
       }
 
       console.log(chalk.gray(`  │  Likuiditas     : `) + chalk.white(`$${(ticker.turnover24h / 1e6).toFixed(1)}M`) + chalk.gray(` (Tier ${score.liquidityTier}) | Funding: `) + chalk.white(`${(ticker.fundingRate * 100).toFixed(4)}%`));
 
-      const reasons = bias === 'LONG' ? score.longScore.reasons : score.shortScore.reasons;
+      const reasons = (bias === 'LONG' ? score.longScore : score.shortScore).modifiers.map(modifier => modifier.reason);
       if (reasons && reasons.length > 0) {
         console.log(chalk.gray(`  │  Faktor Kunci   : `) + chalk.white(reasons.slice(0, 4).join(' | ')));
       }
@@ -416,6 +418,9 @@ async function runScan() {
   const btcTicker = hub.tickers.get('BTCUSDT')!;
   const btcInd = hub.indicators.get('BTCUSDT')!;
   const btcCandles15 = hub.getCandles('BTCUSDT', '15');
+  if (!btcCandles15) {
+    throw new Error('BTC 15m candles were not loaded; cannot analyze market regime.');
+  }
   const currentRegime = regimeEngine.analyze(btcInd, btcTicker, btcCandles15);
 
   const regimeIcon = currentRegime.regime.includes('BULL') ? '🟢' : currentRegime.regime.includes('BEAR') ? '🔴' : '🟡';
@@ -474,7 +479,9 @@ async function runScan() {
   console.log(chalk.cyan('  │') + chalk.white.bold('  📊  PIPELINE SUMMARY                                                      ') + chalk.cyan('│'));
   console.log(chalk.cyan('  ├─────────────────────────────────────────────────────────────────────────────┤'));
   console.log(chalk.cyan('  │') + chalk.gray(`  Universe: ${String(totalSymbols).padEnd(6)} → Stage 1: ${String(stage1Candidates.length).padEnd(5)} → Stage 2: ${String(candidateScores.length).padEnd(5)} → Qualified: ${String(rankerOutput.results.length).padEnd(4)}`) + chalk.cyan('│'));
-  console.log(chalk.cyan('  │') + chalk.gray(`  Watchlist: ${String(rankerOutput.watchlist.length).padEnd(5)} | Quarantined: ${String(rankerOutput.rejectedSignals.length).padEnd(5)} | Total Time: ${totalElapsed.padEnd(7)}        `) + chalk.cyan('│'));
+  const watchlist = rankerOutput.watchlist ?? [];
+  const rejectedSignals = rankerOutput.rejectedSignals ?? [];
+  console.log(chalk.cyan('  │') + chalk.gray(`  Watchlist: ${String(watchlist.length).padEnd(5)} | Quarantined: ${String(rejectedSignals.length).padEnd(5)} | Total Time: ${totalElapsed.padEnd(7)}        `) + chalk.cyan('│'));
   console.log(chalk.cyan('  └─────────────────────────────────────────────────────────────────────────────┘'));
   console.log('');
 
@@ -505,12 +512,12 @@ async function runScan() {
     });
   }
 
-  if (rankerOutput.watchlist.length > 0) {
+  if (watchlist.length > 0) {
     console.log('');
     console.log(chalk.yellow.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
     console.log(chalk.yellow.bold('  │  ⏳  DETAIL: WATCHLIST — MONITOR FOR ENTRY                                 │'));
     console.log(chalk.yellow.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
-    rankerOutput.watchlist.slice(0, 8).forEach((w, idx) => {
+    watchlist.slice(0, 8).forEach((w, idx) => {
       const sideTag = w.side === 'LONG' ? chalk.green('▲ LONG') : chalk.red('▼ SHORT');
       const dist = w.timing?.distanceFromTriggerATR ? `${w.timing.distanceFromTriggerATR}x ATR` : '';
       console.log('');
@@ -519,12 +526,12 @@ async function runScan() {
     });
   }
 
-  if (rankerOutput.rejectedSignals.length > 0) {
+  if (rejectedSignals.length > 0) {
     console.log('');
     console.log(chalk.red.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
     console.log(chalk.red.bold('  │  ❌  DO NOT CHASE — QUARANTINED SIGNALS                                    │'));
     console.log(chalk.red.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
-    rankerOutput.rejectedSignals.slice(0, 6).forEach((rej, idx) => {
+    rejectedSignals.slice(0, 6).forEach((rej, idx) => {
       const chaseStr = rej.timing?.chaseRiskScore !== undefined ? `Chase: ${rej.timing.chaseRiskScore}/100` : 'HIGH RISK';
       const change = (rej.priceChange24h * 100).toFixed(2);
       console.log(chalk.gray(`  ${idx + 1}. `) + chalk.yellow(rej.symbol) + chalk.gray(` | 24h: ${change}% | ${chaseStr}`));

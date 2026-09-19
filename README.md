@@ -141,13 +141,15 @@ The default public endpoints work without an API key. To customize settings:
 Example:
 
 ```text
-BYBIT_BASE_URL=https://api.bybit.com
-BYBIT_WS_URL=wss://stream.bybit.com/v5/public/linear
+BYBIT_BASE_URL=https://api.bybit.id
+BYBIT_WS_URL=wss://stream.bybit.id/v5/public/linear
 LOG_LEVEL=info
 SIGNAL_LOG_PATH=./validation/signal-log.jsonl
 JSON_OUTPUT_PATH=./output/screener-results.json
 ```
 
+Bybit documents regional endpoints. Set both variables to the endpoint for
+your account region when needed. Never disable TLS certificate verification.
 Never publish a real `.env` file or API credentials to GitHub. The repository
 ignores `.env` files by default.
 
@@ -236,5 +238,4 @@ orderbook, and absorption logic.
 ## Project documentation
 
 - [Operations guide](docs/operations.md)
-- [Discovery upgrade walkthrough](walkthrough.md)
 - [Environment example](.env.example)

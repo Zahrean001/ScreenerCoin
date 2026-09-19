@@ -17,8 +17,9 @@ review, while `watchlist` and rejected signals require further confirmation.
 ## Configuration
 
 Copy `.env.example` to `.env` when custom endpoints or output paths are needed.
-The default public endpoints use Bybit's production `.com` REST and WebSocket
-hosts. Use the testnet endpoints for development.
+The default public endpoints use Bybit's official Indonesia regional REST and
+WebSocket hosts. Use the endpoint for your account region when needed, and use
+the testnet endpoints for development.
 
 No API key is required for the public market-data feeds currently used by the
 screener.
@@ -50,4 +51,10 @@ Use the existing project commands:
 npm.cmd run typecheck
 npm.cmd run build
 npm.cmd test
+```
+
+To run the manual scanner from the compiled JavaScript output:
+
+```text
+npm.cmd run scan:built
 ```

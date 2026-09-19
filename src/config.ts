@@ -4,8 +4,11 @@
 
 export const CONFIG = {
   // ---- Exchange ----
-  BYBIT_REST_URL: process.env.BYBIT_BASE_URL || 'https://api.bybit.com',
-  BYBIT_WS_URL: process.env.BYBIT_WS_URL || 'wss://stream.bybit.com/v5/public/linear',
+  // Bybit documents regional endpoints for restricted/localized accounts.
+  // Indonesia is the default for this distribution; override these variables
+  // when using another supported Bybit region.
+  BYBIT_REST_URL: process.env.BYBIT_BASE_URL || 'https://api.bybit.id',
+  BYBIT_WS_URL: process.env.BYBIT_WS_URL || 'wss://stream.bybit.id/v5/public/linear',
 
   // ---- Stage 1: Liquidity Tiers (24h turnover in USDT) ----
   LIQUIDITY_TIERS: {
