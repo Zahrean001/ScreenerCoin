@@ -1,4 +1,4 @@
-# Trade Screener Coin
+# Trade Screener Coin v2.1
 
 Read-only crypto market screener for **Bybit USDT perpetual contracts**.
 
@@ -7,7 +7,8 @@ Copyright (c) 2026 Zahrean001. All rights reserved.
 This bot helps users discover coins that may deserve further review by
 combining unusual activity, liquidity, momentum, market structure, capital
 flow, relative strength, multi-timeframe context, VWAP levels, orderbook
-imbalance, and absorption-style orderflow confirmation.
+imbalance, absorption-style orderflow confirmation, and higher-timeframe
+macro context.
 
 > **Important:** This is a discovery and ranking tool, not an auto-trading bot.
 > It does not place orders, manage positions, or guarantee profits. Every
@@ -43,6 +44,12 @@ loss, take profit, or leverage instructions.
 - Bybit USDT perpetual market scanning
 - Liquidity and spread filtering
 - Multi-timeframe analysis using 5m, 15m, and 1h data
+- Higher-timeframe context using 4h and 1d candles:
+  - `MACRO_ALIGNED`
+  - `EARLY_MACRO_ROTATION`
+  - `COUNTER_TREND`
+  - `HTF_NEUTRAL`
+  - incomplete-history warnings
 - Open interest and funding-flow classification:
   `LONG_BUILD`, `SHORT_BUILD`, `SHORT_COVERING`, and `LONG_LIQUIDATION`
 - Decoupled alpha detection for strong coins that outperform BTC
@@ -55,6 +62,8 @@ loss, take profit, or leverage instructions.
   - `ABSORPTION_UNCONFIRMED`
 - Early, base, pullback, continuation, and late-mover discovery labels
 - Ranked results separated into actionable review and watchlist candidates
+- Rate-limit retry with backoff for Bybit public REST requests
+- End-to-end scan latency and signal freshness reporting
 - JSON and signal-log output paths configurable through `.env`
 
 ## Requirements
@@ -111,6 +120,12 @@ The launcher will:
 
 Run `scan.bat` again whenever a fresh scan is needed.
 
+The scanner is read-only. It uses public Bybit market-data endpoints and does
+not require API keys. The first market scan can take about 1 minute because it
+loads 5m, 15m, 1h, 4h, and 1d candles for the most active candidates. The
+terminal reports the actual end-to-end latency, data freshness, and any
+incomplete data instead of silently treating missing data as a signal.
+
 ## Optional command-line usage
 
 Open Command Prompt or PowerShell in the project folder:
@@ -164,6 +179,38 @@ ignores `.env` files by default.
 - `EARLY_ROTATION`: developing rotation or pullback opportunity
 - `LATE_MOVER`: the move may already be mature; avoid chasing
 
+### Entry status
+
+- `ACTIONABLE_NOW`: the candidate is worth reviewing immediately because the
+  direction, trigger, data completeness, timing, and risk filters currently
+  pass. This is not an automatic trade instruction and does not guarantee
+  profit.
+- `WATCHING` / `WAITING`: the setup is interesting but needs a trigger or
+  confirmation.
+- `WAIT_PULLBACK`: the direction may remain valid, but price has moved too far
+  from the preferred area.
+- `NO_LONG` / `NO_SHORT`: the relevant side does not have enough confirmation.
+- `REJECTED` / `QUARANTINED`: risk, stale momentum, incomplete data, or other
+  safety filters prevent the candidate from being treated as actionable.
+
+### Higher-timeframe context
+
+The screener uses the following hierarchy:
+
+```text
+1d = macro direction
+4h = primary higher-timeframe trend
+1h = setup context
+15m = discovery structure
+5m = timing and freshness
+```
+
+An `MACRO_ALIGNED` result means the 4h and 1d context support the candidate
+direction. `COUNTER_TREND` means the lower-timeframe setup conflicts with the
+macro context and is penalized or downgraded. If 4h or 1d history is
+incomplete, the screener reports a warning and does not apply the full HTF
+alignment modifier.
+
 ### Capital flow labels
 
 - `LONG_BUILD`: price and open interest suggest new long positioning
@@ -192,6 +239,9 @@ and the current price context.
 - Check that timestamps and market data are current before acting on any result.
 - Exchange availability, network errors, stale data, and rate limits can affect
   scan results.
+- A scan is a live snapshot, not a promise that the market will remain
+  unchanged while the scan is running. Recheck the latest price, orderbook,
+  and freshness fields before making any decision.
 - Do not disable TLS certificate validation to bypass network errors.
 
 ## Troubleshooting
@@ -212,9 +262,18 @@ Run `scan.bat` again after installation completes.
 
 ### Bybit connection or certificate error
 
-Do not bypass TLS validation. Check the computer clock, Windows certificate
-updates, proxy/antivirus HTTPS inspection, and whether Bybit is reachable from
-the network.
+Do not bypass TLS validation. The default endpoint is the official regional
+Indonesia host (`api.bybit.id`). Check the computer clock, Windows certificate
+updates, proxy/antivirus HTTPS inspection, and whether that host is reachable.
+For another supported Bybit region, set both `BYBIT_BASE_URL` and
+`BYBIT_WS_URL` in `.env`.
+
+### Rate-limit or incomplete candle warning
+
+The scanner retries Bybit rate-limit responses with backoff. If a symbol still
+cannot be loaded, it is not silently treated as bullish or bearish; review the
+diagnostics and rerun the scan after a short delay. Avoid starting many scans
+at the same time from one IP address.
 
 ### The result is empty
 

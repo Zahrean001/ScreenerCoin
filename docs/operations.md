@@ -1,4 +1,4 @@
-# Screener Operations
+# Screener Operations — v2.1
 
 ## Purpose
 
@@ -11,8 +11,9 @@ See the repository `LICENSE` file for the complete terms.
 
 The pipeline combines liquidity, open interest, spread, rolling price movement,
 market structure, momentum, funding, relative strength, volatility, orderbook
-quality, and anti-chase rules. `actionableResults` are intended for immediate
-review, while `watchlist` and rejected signals require further confirmation.
+quality, absorption proxies, 4h/1d higher-timeframe context, and anti-chase
+rules. `actionableResults` are intended for immediate review, while
+`watchlist` and rejected signals require further confirmation.
 
 ## Configuration
 
