@@ -89,6 +89,8 @@ market-data endpoints.
 - Binance deep confirmation for selected candidates using matched 15m futures
   and spot returns, recent 15m open-interest deltas, deterministic symbol
   mapping, capped modifiers, and fail-open timeout/error handling
+- Simplified terminal dashboard with separate `ACTIONABLE NOW`, `WATCHLIST`,
+  `AVOID / QUARANTINED`, and `DATA QUALITY` sections
 - JSON and signal-log output paths configurable through `.env`
 
 ## Requirements
@@ -280,6 +282,23 @@ The terminal may show a cross-exchange status for selected candidates:
 These labels describe observed market-data alignment. They do not prove whale
 activity, smart-money intent, accumulation, or distribution. The cross-exchange
 modifier is capped to `[-5, +5]` and Binance can never reverse the Bybit bias.
+
+### Reading the terminal output
+
+The terminal intentionally uses four simple sections:
+
+1. `ACTIONABLE NOW`: candidates that passed the current freshness, trigger,
+   timing, structure, and risk gates and deserve immediate review.
+2. `WATCHLIST`: interesting candidates that still need a trigger, confirmation,
+   or pullback.
+3. `AVOID / QUARANTINED`: candidates that are late, stale, risky, or otherwise
+   blocked from immediate review.
+4. `DATA QUALITY & HOW TO READ THIS`: explains the Bybit primary source and the
+   Binance confirmation role.
+
+The dashboard is a decision aid, not an order ticket. It intentionally avoids
+printing every internal score and diagnostic in the main view so that the
+important result is readable at a glance.
 
 ### Validation status for the current release
 

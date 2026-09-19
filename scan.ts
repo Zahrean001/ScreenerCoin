@@ -538,76 +538,13 @@ async function runScan() {
   console.log(chalk.green(`  ✓ `) + chalk.white(`Ranking complete`) + chalk.gray(` (${totalElapsed})`));
   console.log(progressBar(6, 6));
 
-  // Pipeline Summary
-  console.log('');
-  console.log(chalk.cyan('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-  console.log(chalk.cyan('  │') + chalk.white.bold('  📊  PIPELINE SUMMARY                                                      ') + chalk.cyan('│'));
-  console.log(chalk.cyan('  ├─────────────────────────────────────────────────────────────────────────────┤'));
-  console.log(chalk.cyan('  │') + chalk.gray(`  Universe: ${String(totalSymbols).padEnd(6)} → Stage 1: ${String(stage1Candidates.length).padEnd(5)} → Stage 2: ${String(candidateScores.length).padEnd(5)} → Qualified: ${String(rankerOutput.results.length).padEnd(4)}`) + chalk.cyan('│'));
-  const watchlist = rankerOutput.watchlist ?? [];
-  const rejectedSignals = rankerOutput.rejectedSignals ?? [];
-  console.log(chalk.cyan('  │') + chalk.gray(`  Watchlist: ${String(watchlist.length).padEnd(5)} | Quarantined: ${String(rejectedSignals.length).padEnd(5)} | Total Time: ${totalElapsed.padEnd(7)}        `) + chalk.cyan('│'));
-  console.log(chalk.cyan('  └─────────────────────────────────────────────────────────────────────────────┘'));
-  console.log('');
-
-  // Render Terminal Table
+  // Render the single readable result dashboard.
   terminalUI.render(rankerOutput);
-
-  // Detailed Section Cards
-  if (rankerOutput.results.length > 0) {
-    console.log('');
-    console.log(chalk.green.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-    console.log(chalk.green.bold('  │  🎯  DETAIL: ACTIONABLE NOW — ENTRY GUIDE                                 │'));
-    console.log(chalk.green.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
-    rankerOutput.results.slice(0, 8).forEach((r, idx) => {
-      const sideTag = r.side === 'LONG' ? chalk.bgGreen.black.bold(' LONG ') : chalk.bgRed.white.bold(' SHORT ');
-      const catTag = r.signalCategory ? chalk.cyan(`[${r.signalCategory}]`) : '';
-      console.log('');
-      console.log(chalk.white(`  ┌── #${idx + 1} `) + chalk.white.bold(r.symbol) + ` ${sideTag} ${catTag}`);
-      console.log(chalk.gray(`  │  Rating: `) + chalk.yellow.bold(r.rating) + chalk.gray(` | Score: `) + chalk.white.bold(`${r.finalScore.toFixed(1)}/100`));
-      console.log(chalk.gray(`  │  Price:  `) + chalk.white(`$${r.price}`) + chalk.gray(` | 24h: `) + (r.priceChange24h >= 0 ? chalk.green : chalk.red)(`${(r.priceChange24h * 100).toFixed(2)}%`) + chalk.gray(` | Vol: `) + chalk.white(`$${(r.volume24h / 1e6).toFixed(1)}M`));
-      console.log(chalk.gray(`  │  Entry:  `) + chalk.cyan(r.entryStatus || 'N/A'));
-      if (r.reasons?.length) {
-        console.log(chalk.gray(`  │  Why:    `) + chalk.white(r.reasons.slice(0, 3).join(' | ')));
-      }
-      if (r.timing) {
-        console.log(chalk.gray(`  │  Action: `) + chalk.cyan.bold(r.timing.decision));
-      }
-      console.log(chalk.gray(`  └${'─'.repeat(76)}`));
-    });
-  }
-
-  if (watchlist.length > 0) {
-    console.log('');
-    console.log(chalk.yellow.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-    console.log(chalk.yellow.bold('  │  ⏳  DETAIL: WATCHLIST — MONITOR FOR ENTRY                                 │'));
-    console.log(chalk.yellow.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
-    watchlist.slice(0, 8).forEach((w, idx) => {
-      const sideTag = w.side === 'LONG' ? chalk.green('▲ LONG') : chalk.red('▼ SHORT');
-      const dist = w.timing?.distanceFromTriggerATR ? `${w.timing.distanceFromTriggerATR}x ATR` : '';
-      console.log('');
-      console.log(chalk.white(`  ${idx + 1}. `) + chalk.white.bold(w.symbol) + ` ${sideTag}` + chalk.gray(` | Score: ${w.finalScore.toFixed(1)} | $${w.price} (${(w.priceChange24h * 100).toFixed(2)}%)`));
-      console.log(chalk.gray(`     ${dist ? `Distance: ${dist} | ` : ''}`) + chalk.yellow(w.timing?.decision ?? 'Awaiting trigger'));
-    });
-  }
-
-  if (rejectedSignals.length > 0) {
-    console.log('');
-    console.log(chalk.red.bold('  ┌─────────────────────────────────────────────────────────────────────────────┐'));
-    console.log(chalk.red.bold('  │  ❌  DO NOT CHASE — QUARANTINED SIGNALS                                    │'));
-    console.log(chalk.red.bold('  └─────────────────────────────────────────────────────────────────────────────┘'));
-    rejectedSignals.slice(0, 6).forEach((rej, idx) => {
-      const chaseStr = rej.timing?.chaseRiskScore !== undefined ? `Chase: ${rej.timing.chaseRiskScore}/100` : 'HIGH RISK';
-      const change = (rej.priceChange24h * 100).toFixed(2);
-      console.log(chalk.gray(`  ${idx + 1}. `) + chalk.yellow(rej.symbol) + chalk.gray(` | 24h: ${change}% | ${chaseStr}`));
-      console.log(chalk.gray(`     `) + chalk.red(rej.timing?.decision ?? 'Overextended — too late to enter'));
-    });
-  }
 
   // Footer
   console.log('');
   console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-  console.log(chalk.gray(`  Trade Screener Coin v2.0 | Scan completed in ${totalElapsed}`));
+  console.log(chalk.gray(`  Trade Screener Coin v2.1.1 | Scan completed in ${totalElapsed}`));
   console.log(chalk.gray(`  ${scanTime} WIB | Refresh: jalankan scan.bat lagi`));
   console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
   console.log('');
