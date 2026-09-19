@@ -64,6 +64,10 @@ loss, take profit, or leverage instructions.
 - Ranked results separated into actionable review and watchlist candidates
 - Rate-limit retry with backoff for Bybit public REST requests
 - End-to-end scan latency and signal freshness reporting
+- Fail-safe freshness gates that block stale data from `ACTIONABLE_NOW`
+- Binance deep confirmation for selected candidates using matched 15m futures
+  and spot returns, recent 15m open-interest deltas, deterministic symbol
+  mapping, capped modifiers, and fail-open timeout/error handling
 - JSON and signal-log output paths configurable through `.env`
 
 ## Requirements
@@ -125,6 +129,13 @@ not require API keys. The first market scan can take about 1 minute because it
 loads 5m, 15m, 1h, 4h, and 1d candles for the most active candidates. The
 terminal reports the actual end-to-end latency, data freshness, and any
 incomplete data instead of silently treating missing data as a signal.
+
+For selected Stage 2 candidates, the scanner also performs a bounded Binance
+deep check. Bybit remains the primary venue and primary bias source; Binance is
+confirmation only and can never reverse the Bybit direction. The check uses
+matched 15m futures and spot returns plus recent 15m open-interest history when
+available. Binance timeout, stale-data, or mapping failures are neutral and do
+not block the main Bybit scan.
 
 ## Optional command-line usage
 
@@ -230,6 +241,37 @@ order:
 
 Always combine these labels with maturity, market regime, data completeness,
 and the current price context.
+
+### Cross-exchange confirmation
+
+The terminal may show a cross-exchange status for selected candidates:
+
+- `CROSS_EXCHANGE_CONFIRMED`: short-window direction is aligned across Bybit
+  and Binance futures/spot data
+- `SPOT_DRIVEN_ACCUMULATION`: Binance Spot direction and sufficient spot volume
+  support the move
+- `CROSS_EXCHANGE_DIVERGENCE`: Bybit and Binance Futures disagree
+- `SPOT_FUTURES_DIVERGENCE`: futures move without matching spot confirmation
+- `BYBIT_ONLY_MOVE`: the short-window move is not confirmed by Binance
+- `BINANCE_UNAVAILABLE` / `STALE_EXTERNAL_DATA`: no external modifier is
+  applied; Bybit analysis continues independently
+
+These labels describe observed market-data alignment. They do not prove whale
+activity, smart-money intent, accumulation, or distribution. The cross-exchange
+modifier is capped to `[-5, +5]` and Binance can never reverse the Bybit bias.
+
+### Validation status for the current release
+
+- 20 automated test suites passing with 0 failures
+- TypeScript type-check and production build passing
+- Live scan completed for 580 Bybit instruments
+- 25 selected candidates checked by the Binance deep-confirmation layer
+- No `SCAN ERROR` or Bybit rate-limit failure in the final live run
+
+The validation snapshot produced 0 `ACTIONABLE_NOW`, 10 watchlist entries, and
+10 quarantined entries in approximately 61.6 seconds. An empty actionable
+section is an expected safe result when no candidate satisfies all freshness,
+trigger, timing, structure, and risk gates at that exact market snapshot.
 
 ## Safety and scope
 
