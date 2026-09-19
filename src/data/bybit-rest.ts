@@ -15,27 +15,42 @@ export class BybitRest {
 
   private async request<T>(endpoint: string, params: Record<string, any> = {}): Promise<T> {
     return this.queue.enqueue(async () => {
-      try {
-        const url = `${CONFIG.BYBIT_REST_URL}${endpoint}`;
-        const response = await axios.get(url, { params, timeout: 15000 });
-        if (response.data.retCode !== 0) {
-          throw new Error(`Bybit API Error: ${response.data.retMsg} (Code: ${response.data.retCode})`);
+      const url = `${CONFIG.BYBIT_REST_URL}${endpoint}`;
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await axios.get(url, { params, timeout: 15000 });
+          if (response.data.retCode !== 0) {
+            const apiError = new Error(`Bybit API Error: ${response.data.retMsg} (Code: ${response.data.retCode})`);
+            (apiError as Error & { bybitCode?: number }).bybitCode = response.data.retCode;
+            throw apiError;
+          }
+          return response.data.result as T;
+        } catch (err) {
+          const errorCode = typeof err === 'object' && err !== null && 'code' in err
+            ? String((err as { code?: unknown }).code)
+            : '';
+          const bybitCode = typeof err === 'object' && err !== null && 'bybitCode' in err
+            ? Number((err as { bybitCode?: unknown }).bybitCode)
+            : 0;
+          if (errorCode === 'CERT_HAS_EXPIRED' || errorCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
+            throw new Error(
+              `Bybit TLS certificate validation failed for ${CONFIG.BYBIT_REST_URL}. ` +
+              'Check the Windows clock, root certificates, proxy/antivirus HTTPS inspection, ' +
+              'or set BYBIT_BASE_URL to the documented endpoint for your region. TLS validation remains enabled.'
+            );
+          }
+          if (bybitCode === 10006 && attempt < maxAttempts) {
+            const delayMs = attempt * 2000;
+            this.log.warn(`Bybit rate limit reached for ${endpoint}; retrying in ${delayMs}ms`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+          this.log.error(`REST request failed for ${endpoint}`, { error: String(err), attempt });
+          throw err;
         }
-        return response.data.result;
-      } catch (err) {
-        const errorCode = typeof err === 'object' && err !== null && 'code' in err
-          ? String((err as { code?: unknown }).code)
-          : '';
-        if (errorCode === 'CERT_HAS_EXPIRED' || errorCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
-          throw new Error(
-            `Bybit TLS certificate validation failed for ${CONFIG.BYBIT_REST_URL}. ` +
-            'Check the Windows clock, root certificates, proxy/antivirus HTTPS inspection, ' +
-            'or set BYBIT_BASE_URL to the documented endpoint for your region. TLS validation remains enabled.'
-          );
-        }
-        this.log.error(`REST request failed for ${endpoint}`, { error: String(err) });
-        throw err;
       }
+      throw new Error(`Bybit request failed after ${maxAttempts} attempts: ${endpoint}`);
     });
   }
 

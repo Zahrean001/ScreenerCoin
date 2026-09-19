@@ -263,7 +263,7 @@ async function runScan() {
 
     const rankerOutput = finalRanker.rank(
       customScores, sectorMap, currentRegime, btcTicker,
-      0, 100,
+      100, Date.now() - startTime,
       {
         universeSize: hub.instruments.size,
         eligibleSymbols: normalizedSymbols.length,
@@ -460,7 +460,7 @@ async function runScan() {
 
   const rankerOutput = finalRanker.rank(
     candidateScores, sectorMap, currentRegime, btcTicker,
-    0, 100,
+    100, Date.now() - startTime,
     {
       universeSize: totalSymbols,
       eligibleSymbols,
