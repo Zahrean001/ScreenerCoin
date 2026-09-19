@@ -1,9 +1,11 @@
-# Screener Operations — v2.1
+# Screener Operations — v2.1.1
 
 ## Purpose
 
-This application is a read-only real-time screener for Bybit USDT perpetual
-contracts. It ranks LONG and SHORT setups; it does not place orders.
+This application is a read-only real-time multi-exchange screener. Bybit USDT
+perpetuals are the primary scan and directional-bias venue. Binance is used
+only as a bounded confirmation layer for selected candidates. It ranks LONG
+and SHORT setups; it does not place orders.
 
 The source code is proprietary. Public visibility does not grant permission
 to copy, modify, redistribute, re-host, or use the project commercially.
@@ -14,6 +16,16 @@ market structure, momentum, funding, relative strength, volatility, orderbook
 quality, absorption proxies, 4h/1d higher-timeframe context, and anti-chase
 rules. `actionableResults` are intended for immediate review, while
 `watchlist` and rejected signals require further confirmation.
+
+## Exchange roles
+
+Bybit performs the wide-universe scan and all primary signal analysis. Binance
+is queried only for selected Stage 2 candidates using matched 15m Futures and
+Spot returns plus recent 15m open-interest history when available. Binance
+modifiers are capped and cannot flip the Bybit direction. Binance timeout,
+stale data, unavailable symbols, and mapping failures are fail-open: the
+candidate remains eligible for Bybit-only analysis with a neutral external
+modifier.
 
 ## Configuration
 

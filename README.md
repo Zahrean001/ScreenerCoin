@@ -1,6 +1,7 @@
-# Trade Screener Coin v2.1
+# Trade Screener Coin v2.1.1
 
-Read-only crypto market screener for **Bybit USDT perpetual contracts**.
+Read-only multi-exchange crypto market screener with **Bybit USDT
+perpetuals as the primary venue** and a limited **Binance confirmation layer**.
 
 Copyright (c) 2026 Zahrean001. All rights reserved.
 
@@ -8,7 +9,9 @@ This bot helps users discover coins that may deserve further review by
 combining unusual activity, liquidity, momentum, market structure, capital
 flow, relative strength, multi-timeframe context, VWAP levels, orderbook
 imbalance, absorption-style orderflow confirmation, and higher-timeframe
-macro context.
+macro context. Bybit supplies the primary scan and directional bias. Binance
+is queried only for a bounded set of top candidates to check whether the same
+short-window move is also visible on Binance Futures and Binance Spot.
 
 > **Important:** This is a discovery and ranking tool, not an auto-trading bot.
 > It does not place orders, manage positions, or guarantee profits. Every
@@ -38,6 +41,24 @@ The screener answers questions such as:
 The output is intended to produce a **shortlist of potential opportunities**.
 It is not a complete entry plan and does not provide guaranteed entry, stop
 loss, take profit, or leverage instructions.
+
+## Exchange architecture
+
+The scanner uses a deliberate two-layer design:
+
+1. **Bybit primary scan:** scans the Bybit linear USDT perpetual universe,
+   performs the full liquidity, structure, flow, HTF, timing, freshness, and
+   ranking analysis, and remains the source of the primary LONG/SHORT bias.
+2. **Binance deep confirmation:** checks only selected Stage 2 candidates.
+   It compares matched 15m Binance Futures and Spot returns and recent 15m
+   open-interest history when available. Binance can adjust ranking within a
+   strict cap, but it can never reverse the Bybit bias.
+
+Binance is not a replacement for Bybit, an execution venue, or proof of whale
+activity. If Binance is unavailable, stale, unmapped, or times out, the
+scanner continues with Bybit-only analysis and applies no external modifier.
+No Binance API key is required because the confirmation layer uses public
+market-data endpoints.
 
 ## Main features
 
