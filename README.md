@@ -1,4 +1,4 @@
-# Trade Screener Coin v2.1.1
+# Trade Screener Coin v2.1.2
 
 Read-only multi-exchange crypto market screener with **Bybit USDT
 perpetuals as the primary venue** and a limited **Binance confirmation layer**.
@@ -91,6 +91,8 @@ market-data endpoints.
   mapping, capped modifiers, and fail-open timeout/error handling
 - Simplified terminal dashboard with separate `ACTIONABLE NOW`, `WATCHLIST`,
   `AVOID / QUARANTINED`, and `DATA QUALITY` sections
+- Human-readable candidate cards with setup gauges, timing guidance, VWAP and
+  capital-flow explanations, formatted prices/volumes, and exchange status
 - JSON and signal-log output paths configurable through `.env`
 
 ## Requirements
@@ -299,6 +301,12 @@ The terminal intentionally uses four simple sections:
 The dashboard is a decision aid, not an order ticket. It intentionally avoids
 printing every internal score and diagnostic in the main view so that the
 important result is readable at a glance.
+
+Candidate cards may also show an illustrative entry area, invalidation level,
+target reference, and risk/reward estimate derived from the scanner's existing
+market structure and ATR inputs. These are manual analysis references only;
+the screener does not place orders, manage positions, or guarantee that any
+level will be reached.
 
 ### Validation status for the current release
 

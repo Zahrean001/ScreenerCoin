@@ -1,5 +1,5 @@
 @echo off
-title Trade Screener Coin v2.1.1
+title Trade Screener Coin v2.1.2
 color 0F
 cls
 

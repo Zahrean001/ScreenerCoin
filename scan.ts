@@ -24,6 +24,7 @@ import { Stage2Signal } from './src/stages/stage2-signal.js';
 import { CorrelationFilter } from './src/ranking/correlation.js';
 import { FinalRanker, CandidateScores } from './src/ranking/final-ranker.js';
 import { TerminalUI } from './src/output/terminal-ui.js';
+import { renderDetailedCard } from './src/output/ui-formatter.js';
 import { BinanceSymbolResolver } from './src/exchanges/binance-symbol-resolver.js';
 import { BinanceDeepAnchorEngine } from './src/exchanges/binance-deep-anchor.js';
 import chalk from 'chalk';
@@ -305,114 +306,7 @@ async function runScan() {
     console.log(chalk.cyan('  ╚═══════════════════════════════════════════════════════════════════════════════════╝'));
 
     for (const score of customScores) {
-      const sym = score.symbol;
-      const ticker = score.ticker;
-      const longTotal = score.longScore.total;
-      const shortTotal = score.shortScore.total;
-      const bias = longTotal >= shortTotal ? 'LONG' : 'SHORT';
-      const sideColor = bias === 'LONG' ? chalk.green.bold : chalk.red.bold;
-      const sideTag = bias === 'LONG' ? chalk.bgGreen.black.bold(' BUY / LONG ') : chalk.bgRed.white.bold(' SELL / SHORT ');
-
-      // Find if it was ranked in results, watchlist, or quarantined
-      const rankedResult = rankerOutput.results.find(r => r.symbol === sym);
-      const rankedWatch = rankerOutput.watchlist?.find(w => w.symbol === sym);
-      const rankedRej = rankerOutput.rejectedSignals?.find(x => x.symbol === sym);
-
-      let statusBadge = chalk.yellow('⏳ WAIT / MONITOR');
-      if (rankedResult) {
-        statusBadge = chalk.bgGreen.black.bold(' 🚀 ACTIONABLE ENTRY NOW ');
-      } else if (rankedRej) {
-        statusBadge = chalk.bgRed.white.bold(' ⚠️ DO NOT CHASE (HIGH RISK) ');
-      } else if (rankedWatch) {
-        statusBadge = chalk.bgCyan.black.bold(' ⏳ WATCHLIST (BASE / PULLBACK) ');
-      }
-
-      const p24 = (ticker.price24hPcnt * 100).toFixed(2);
-      const p24Color = ticker.price24hPcnt >= 0 ? chalk.green : chalk.red;
-      const p1hStr = score.priceChange1h !== null && score.priceChange1h !== undefined ? `${(score.priceChange1h * 100).toFixed(2)}%` : '0.00%';
-      const p5mStr = score.priceChange5m !== null && score.priceChange5m !== undefined ? `${(score.priceChange5m * 100).toFixed(2)}%` : '0.00%';
-
-      console.log('');
-      console.log(chalk.white('  ┌── [KOIN] ') + chalk.yellow.bold(sym) + `  ${sideTag}  ${statusBadge}`);
-      console.log(chalk.gray(`  │  Harga Saat Ini : `) + chalk.white.bold(`$${ticker.lastPrice}`) + chalk.gray(` | 24h: `) + p24Color(`${p24}%`) + chalk.gray(` | 1h: `) + chalk.white(p1hStr) + chalk.gray(` | 5m: `) + chalk.white(p5mStr));
-      console.log(chalk.gray(`  │  Skor Bot Total : `) + chalk.white.bold(`${Math.max(longTotal, shortTotal).toFixed(1)}/100`) + chalk.gray(` (Long: ${longTotal.toFixed(1)} vs Short: ${shortTotal.toFixed(1)})`));
-      
-      const discColor = score.discoveryLabel === 'DECOUPLED_ALPHA' ? chalk.magenta.bold : score.discoveryLabel === 'SHORT_SQUEEZE_CANDIDATE' ? chalk.yellow.bold : chalk.cyan.bold;
-      console.log(chalk.gray(`  │  Discovery Tag  : `) + discColor(score.discoveryLabel ?? 'STANDARD_MOMENTUM') + chalk.gray(` | Potential: `) + chalk.bold(score.entryPotential ?? 'MEDIUM') + chalk.gray(` | Maturity: `) + chalk.white(score.moveMaturity ?? 'DEVELOPING'));
-      if (score.oiCapitalFlow) {
-        console.log(chalk.gray(`  │  Capital Flow   : `) + chalk.green(score.oiCapitalFlow));
-      }
-      if (score.mtfConfluence) {
-        console.log(chalk.gray(`  │  MTF Confluence : `) + chalk.blue(score.mtfConfluence));
-      }
-
-      const va = score.vwapAnalysis ?? score.timing?.vwapAnalysis;
-      if (va) {
-        const sStr = va.sessionVwap?.vwap ? `$${va.sessionVwap.vwap}` : 'N/A';
-        const wStr = va.weeklyVwap?.vwap ? `$${va.weeklyVwap.vwap}` : 'N/A';
-        const mStr = va.monthlyVwap?.vwap ? `$${va.monthlyVwap.vwap}` : 'N/A';
-        const b1Str = va.sessionVwap?.upperBand1 ? `B1 (1.0σ): $${va.sessionVwap.upperBand1} / $${va.sessionVwap.lowerBand1}` : '';
-        const b2Str = va.sessionVwap?.upperBand2 ? `B2 (2.0σ): $${va.sessionVwap.upperBand2} / $${va.sessionVwap.lowerBand2}` : '';
-        
-        const stackColor = va.alignment.includes('BULLISH') ? chalk.green.bold : va.alignment.includes('BEARISH') ? chalk.red.bold : chalk.yellow;
-        console.log(chalk.gray(`  │  VWAP Confluence: `) + stackColor(va.alignment) + chalk.gray(` | Posisi: `) + chalk.cyan(va.bandPosition));
-        console.log(chalk.gray(`  │  Level VWAP     : `) + chalk.white(`Session: ${sStr} | Weekly: ${wStr} | Monthly: ${mStr}`));
-        if (b1Str) {
-          console.log(chalk.gray(`  │  VWAP Bands (SD): `) + chalk.gray(`${b1Str} | ${b2Str}`));
-        }
-      }
-
-      const abs = score.absorption ?? score.timing?.absorption;
-      if (abs && abs.event !== 'ABSORPTION_UNCONFIRMED') {
-        const absColor = abs.event === 'BULLISH_ABSORPTION' ? chalk.green.bold : chalk.red.bold;
-        console.log(chalk.gray(`  │  Orderflow Event: `) + absColor(abs.event) + chalk.gray(` | Confidence: `) + chalk.white(`${abs.confidence}/100`) + chalk.gray(` | Lokasi: `) + chalk.cyan(abs.location));
-        console.log(chalk.gray(`  │  Data Absorpsi  : `) + chalk.white(abs.evidence.join(' | ')) + chalk.gray(` | Trapped: `) + chalk.yellow(abs.trappedSide ?? 'N/A'));
-      }
-
-      const cx = score.crossExchange ?? score.timing?.crossExchange;
-      if (cx && cx.status !== 'BINANCE_UNAVAILABLE') {
-        const cxColor = cx.scoreModifier > 0 ? chalk.green.bold : cx.scoreModifier < 0 ? chalk.red.bold : chalk.yellow;
-        const modStr = cx.scoreModifier > 0 ? `+${cx.scoreModifier}` : `${cx.scoreModifier}`;
-        console.log(chalk.gray(`  │  Cross-Exchange : `) + cxColor(cx.status) + chalk.gray(` | Confidence: `) + chalk.white(cx.confidence) + chalk.gray(` | Mod: `) + chalk.cyan(modStr));
-        const bybitR = cx.bybitFuturesReturn != null ? `${(cx.bybitFuturesReturn * 100).toFixed(2)}%` : 'N/A';
-        const binFR = cx.binanceFuturesReturn != null ? `${(cx.binanceFuturesReturn * 100).toFixed(2)}%` : 'N/A';
-        const binSR = cx.binanceSpotReturn != null ? `${(cx.binanceSpotReturn * 100).toFixed(2)}%` : 'N/A';
-        console.log(chalk.gray(`  │  Venue Delta    : `) + chalk.white(`Bybit: ${bybitR} | Binance Futures: ${binFR} | Binance Spot: ${binSR}`));
-        if (cx.oiConfluence !== 'UNAVAILABLE') {
-          console.log(chalk.gray(`  │  OI Confluence  : `) + chalk.white(cx.oiConfluence));
-        }
-      } else if (cx && cx.status === 'BINANCE_UNAVAILABLE') {
-        console.log(chalk.gray(`  │  Cross-Exchange : `) + chalk.gray('BINANCE_UNAVAILABLE (Bybit standalone)'));
-      }
-
-      console.log(chalk.gray(`  │  Kategori Sinyal: `) + chalk.cyan.bold(score.signalCategory || 'MONITORING') + chalk.gray(` | Entry Status: `) + chalk.white(score.entryStatus || 'EVALUATING'));
-      
-      if (score.timing) {
-        const t = score.timing;
-        const chaseColor = t.chaseRiskScore >= 55 ? chalk.red.bold : t.chaseRiskScore >= 30 ? chalk.yellow : chalk.green;
-        console.log(chalk.gray(`  │  Timing & Jarak : `) + chalk.white(`${t.distanceFromTriggerPct >= 0 ? '+' : ''}${t.distanceFromTriggerPct}%`) + chalk.gray(` (${t.distanceFromTriggerATR}x ATR dari base) | Freshness: ${t.signalFreshness}/100`));
-        console.log(chalk.gray(`  │  Resiko Chasing : `) + chaseColor(`${t.chaseRiskScore}/100`) + chalk.gray(` | Ignition: ${t.momentumIgnitionScore}/100 | Fase: ${t.phase.label}`));
-        if (t.orderbookWarning) {
-          console.log(chalk.gray(`  │  Orderbook Note : `) + chalk.red.bold(t.orderbookWarning) + chalk.gray(` (Imbalance: ${t.orderbookImbalanceRatio ?? 1.0}x)`));
-        }
-        console.log(chalk.gray(`  │  Instruksi Aksi : `) + chalk.cyan.bold(t.decision));
-      }
-
-      const exec = score.executionScore;
-      if (exec) {
-        const slippage = exec.slippageBps !== null && exec.slippageBps !== undefined
-          ? `${exec.slippageBps.toFixed(2)} bps`
-          : 'N/A';
-        console.log(chalk.gray(`  │  Execution      : `) + chalk.green.bold(`${exec.total.toFixed(1)}/100`) + chalk.gray(` | Slippage: ${slippage} | ${exec.passed ? 'PASS' : 'REVIEW'}`));
-      }
-
-      console.log(chalk.gray(`  │  Likuiditas     : `) + chalk.white(`$${(ticker.turnover24h / 1e6).toFixed(1)}M`) + chalk.gray(` (Tier ${score.liquidityTier}) | Funding: `) + chalk.white(`${(ticker.fundingRate * 100).toFixed(4)}%`));
-
-      const reasons = (bias === 'LONG' ? score.longScore : score.shortScore).modifiers.map(modifier => modifier.reason);
-      if (reasons && reasons.length > 0) {
-        console.log(chalk.gray(`  │  Faktor Kunci   : `) + chalk.white(reasons.slice(0, 4).join(' | ')));
-      }
-      console.log(chalk.white('  └─────────────────────────────────────────────────────────────────────────────'));
+      console.log(renderDetailedCard(score));
     }
 
     console.log('');
@@ -544,7 +438,7 @@ async function runScan() {
   // Footer
   console.log('');
   console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-  console.log(chalk.gray(`  Trade Screener Coin v2.1.1 | Scan completed in ${totalElapsed}`));
+  console.log(chalk.gray(`  Trade Screener Coin v2.1.2 | Scan completed in ${totalElapsed}`));
   console.log(chalk.gray(`  ${scanTime} WIB | Refresh: jalankan scan.bat lagi`));
   console.log(chalk.cyan('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
   console.log('');
